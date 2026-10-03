@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ブッ飛びタクシー BOING TAXI</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-mode="attract">
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <div id="speedlines"></div>
+  <div id="hud">
+    <div id="time" class="gameonly"><span class="lbl">TIME</span><span id="timeVal">75.0</span></div>
+    <div id="scorebox" class="gameonly"><div class="lbl stroke">ART 芸術ポイント</div><div id="artVal" class="stroke">0</div><div class="sub stroke">FARE ¥<span id="fareVal">0</span></div></div>
+    <div id="combo" class="gameonly"><span id="comboNum" class="stroke">0</span><small class="stroke">COMBO</small><span id="multVal" class="stroke">×1</span><div class="bar"><i id="comboBar"></i></div></div>
+    <div id="arrowWrap"><div id="arrow"></div><div id="arrowDist" class="stroke"></div></div>
+    <div id="driftBox" class="stroke gameonly">DRIFT <span id="driftVal">0</span></div>
+    <div id="speedBox"><span id="speedVal" class="stroke">0</span><small class="stroke">km/h</small><div class="gauge"><i id="boostBar"></i></div></div>
+    <canvas id="minimap"></canvas>
+    <div id="skyMark"></div>
+    <div id="popups"></div>
+    <div id="chat"></div>
+    <div id="banner"></div>
+  </div>
+  <div id="title">
+    <div class="demo">DEMO PLAY</div>
+    <div class="logo"><div class="l1 stroke">ブッ飛びタクシー</div><div class="l2 stroke">BOING TAXI</div></div>
+    <div class="press stroke">PRESS ANY KEY</div>
+    <div class="keys">↑↓←→ / WASD 運転　SPACE ドリフト　SHIFT ブースト　H クラクション　M 音ON/OFF</div>
+  </div>
+  <div id="result"></div>
+  <div id="fps"></div>
+</div>
+<div id="loading">読み込み中…(three.js をCDNから取得します)</div>
+
+<!-- three.js のみCDN利用 (通常scriptなので file:// でも動作)。それ以外は全て自前コード -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/config.js"></script>
+<script src="js/core/input.js"></script>
+<script src="js/core/audio.js"></script>
+<script src="js/models/models.js"></script>
+<script src="js/world/city.js"></script>
+<script src="js/entities/taxi.js"></script>
+<script src="js/entities/gags.js"></script>
+<script src="js/entities/ragdoll.js"></script>
+<script src="js/entities/pedestrian.js"></script>
+<script src="js/entities/props.js"></script>
+<script src="js/systems/effects.js"></script>
+<script src="js/systems/score.js"></script>
+<script src="js/systems/fare.js"></script>
+<script src="js/systems/camera.js"></script>
+<script src="js/ai/driver.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
