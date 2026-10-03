@@ -1,22 +1,40 @@
-# 公開手順 (GitHub Pages)
+# 公開手順 (GitHub Pages / 全公開)
 
-要件: ソース(プロジェクト)は **Private**、遊べる `index.html` だけ **公開**。
+リポジトリ: https://github.com/Ruteshisu/CrazyTaxi (Public)
 
-GitHub Pages は **無料プランでは Public リポジトリでしか使えない**ため、次の2リポジトリ構成にする。
+## どこをpushするか
+**プロジェクトのルートフォルダ(`CrazyTaxi` フォルダ)ごと**全部pushします。
+`index.html` を含むフォルダがリポジトリのルートになるのが大事です。
 
-| リポジトリ | 公開範囲 | 中身 |
-|---|---|---|
-| `Ruteshisu/crazy-taxi` (任意名) | **Private** | このプロジェクト全体(js/css/docs/tools…) |
-| `Ruteshisu/crazytaxi-play` | **Public** | `index.html` 1ファイルのみ (ビルド成果物) |
+```
+CrazyTaxi/            ← ここでgit操作
+├─ index.html         ← 遊ぶ入口 (Pagesがこれを開く)
+├─ css/  js/          ← ゲーム本体 (index.htmlから相対パスで読み込み)
+├─ docs/  tools/      ← ドキュメント/開発ツール (あっても無害)
+└─ .gitignore         (dist/ は除外)
+```
+ビルド不要。`dist/` や `tools/build_dist.py` は使いません(単一ファイル配布したい時用のおまけ)。
 
-## 手順
-1. GitHub で Private の `crazy-taxi` を作り、このフォルダを push (`git remote add origin ...` → `git push -u origin main`)
-2. GitHub で Public の空リポジトリ `crazytaxi-play` を作る → Settings > Pages > Branch `main` / `/ (root)` を選択
-3. `powershell -ExecutionPolicy Bypass -File tools\publish_pages.ps1`
-   (内部で `python tools/build_dist.py` が `dist/index.html` を作り、`dist` だけを公開リポジトリへ push)
-4. 数分後に https://ruteshisu.github.io/crazytaxi-play/ で遊べる
-更新するたびに 3 を再実行。GitHub Pro 等で Private のまま Pages を使える場合は、Private リポジトリの `dist/` を公開しても良い。
+## コマンド (PowerShell / ターミナル、`CrazyTaxi` フォルダ内で)
+```
+git status
+git branch            # 現在のブランチ名を確認 (main でなければ下の -M main で揃える)
+git remote add origin https://github.com/Ruteshisu/CrazyTaxi.git
+git branch -M main
+git push -u origin main
+```
+`remote origin already exists` と出たら `git remote set-url origin https://github.com/Ruteshisu/CrazyTaxi.git`。
+初回pushはブラウザでGitHubのログインが求められます。
+
+## Pagesを有効化
+1. GitHubのリポジトリ → Settings → Pages
+2. Source: **Deploy from a branch** / Branch: **main** / Folder: **/ (root)** → Save
+3. 1〜2分後に https://ruteshisu.github.io/CrazyTaxi/ で遊べる
+
+## 更新するとき
+`git add -A && git commit -m "..." && git push` だけ。数分でサイトに反映。
 
 ## 注意
-- three.js だけ cdnjs から読み込む(ネット接続が必要)。それ以外は `index.html` に全部入っている。
-- 音は最初のキー入力後に鳴る(ブラウザ制限)。
+- three.js だけ cdnjs から読み込む(ネット接続が必要)。それ以外は全部リポジトリ内。
+- 音は最初のキー入力/タップ後に鳴る(ブラウザの制限)。
+- スマホ(Android/iOS)は同じURLを開けばタッチ操作で遊べる (docs/CONTROLS.md 参照)。

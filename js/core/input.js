@@ -19,6 +19,32 @@
       window.addEventListener('blur', () => { this.keys = {}; });
       // ゲームパッド接続時の任意ボタン
       this._padPrev = false;
+      this._initTouch();
+    },
+    touch: { left: false, right: false, gas: false, brake: false, drift: false, boost: false },
+    /** タッチ操作: 画面下の仮想ボタン(左:ハンドル / 右:アクセル等)。画面のどこかをタップでスタート */
+    _initTouch() {
+      const el = document.getElementById('touch'); if (!el) return;
+      const T = this.touch;
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      const show = () => { document.body.classList.add('is-touch'); };
+      if (isTouch) show();
+      window.addEventListener('touchstart', show, { passive: true, once: true });
+      el.querySelectorAll('[data-k]').forEach((b) => {
+        const k = b.dataset.k, held = new Set();
+        const on = (e) => { e.preventDefault(); held.add(e.pointerId); T[k] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) {} CT.bus.emit('key:down', 'Touch'); };
+        const off = (e) => { held.delete(e.pointerId); if (!held.size) { T[k] = false; b.classList.remove('on'); } };
+        b.addEventListener('pointerdown', on);
+        b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
+        b.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
+      // 画面タップでもスタート/リトライ (ボタン以外)
+      document.getElementById('stage').addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') CT.bus.emit('key:down', 'Touch'); });
+      const stop = (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); };
+      document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+      document.addEventListener('touchstart', stop, { passive: false });
+      document.addEventListener('gesturestart', (e) => e.preventDefault());
+      window.addEventListener('contextmenu', (e) => e.preventDefault());
     },
     down(...codes) { for (const c of codes) if (this.keys[c]) return true; return false; },
     pad() {
@@ -35,6 +61,10 @@
       if (this.down('ArrowRight', 'KeyD')) target += 1;
       if (this.down('Space')) hb = true;
       if (this.down('ShiftLeft', 'ShiftRight')) boost = true;
+      const T = this.touch;
+      if (T.gas) throttle += 1; if (T.brake) throttle -= 1;
+      if (T.left) target -= 1; if (T.right) target += 1;
+      if (T.drift) hb = true; if (T.boost) boost = true;
       const p = this.pad();
       if (p) {
         const ax = p.axes[0] || 0;

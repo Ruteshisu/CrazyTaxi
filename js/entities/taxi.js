@@ -12,7 +12,11 @@
     constructor(scene, color) {
       this.model = CT.Models.taxi(color);
       scene.add(this.model.group);
-      this.cfg = CT.config.taxi;
+      this.cfg = CT.config.taxi; this.cheerT = 0; this.rideT = 0; this.passengerOn = false;
+      const bus = CT.bus; // 吹っ飛ばし/ドリフト/ジャンプで乗員が万歳
+      bus.on('ped:hit', (e) => { this.cheerT = Math.max(this.cheerT, 1.3 + (e.level || 0) * 0.3); });
+      bus.on('jump:land', () => { this.cheerT = Math.max(this.cheerT, 1.6); });
+      bus.on('prop:hit', (e) => { if (e.big) this.cheerT = Math.max(this.cheerT, 1.1); });
       this.reset(0, 0, 0);
     }
     reset(x, z, h) {
@@ -49,7 +53,18 @@
       const sdt = dt / n;
       for (let i = 0; i < n; i++) this._step(sdt, ctl, world);
       this.lastCtl = ctl;
+      this._riders(dt);
       this.sync(dt);
+    }
+
+    _riders(dt) {
+      const R = this.model.riders; if (!R) return;
+      this.rideT += dt; this.cheerT = Math.max(0, this.cheerT - dt);
+      if (this.drifting && this.driftTime > 0.5) this.cheerT = Math.max(this.cheerT, 0.25);
+      R.passenger.group.visible = this.passengerOn;
+      const cheer = this.cheerT > 0, t = this.rideT;
+      CT.Models.animHuman(R.driver, cheer ? 'cheer' : 'seat', t * 3, t);
+      if (this.passengerOn) CT.Models.animHuman(R.passenger, cheer ? 'cheer' : 'seatIdle', t * 3 + 1, t + 0.6);
     }
 
     _step(dt, ctl, world) {

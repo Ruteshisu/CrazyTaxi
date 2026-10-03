@@ -156,7 +156,37 @@
       }
       void t0;
       this._checkHits(taxi, game);
+      this._checkRigs(taxi, game);
     }
+
+    /** 倒れて横たわっているラグドールも、車で当たればもう一度吹っ飛ぶ */
+    _checkRigs(taxi, game) {
+      const cfg = CT.config.ped, sp = taxi.totalSpeed;
+      if (sp < 3 || taxi.y > 1.2) return;
+      for (const r of this.pool.rigs) {
+        if (!r.active || !r.sleeping || !r.o || !r.o.ped) continue;
+        const L = taxi.toLocal(r.x, r.z);
+        if (Math.abs(L.ll) < cfg.hitHalfWidth + 0.4 && L.lf > -cfg.hitBack && L.lf < cfg.hitFront) this.rehit(r, taxi, sp, game);
+      }
+    }
+    rehit(r, taxi, sp, game) {
+      const p = r.o.ped, fx = taxi.vx / (sp || 1), fz = taxi.vz / (sp || 1);
+      const ctx = { speed: sp, fx, fz, lx: -fz, lz: fx };
+      const level = CT.Gags.levelFor(((game && game.score && game.score.enabled) ? game.score.combo : 0) + 1);
+      const gag = CT.Gags.pick(sp, ctx, level), cr = U.pick(CRIES);
+      const info = { ped: p, x: r.x, z: r.z, speed: sp, gag, fx, fz, y: 1, level, rehit: true, cry: { voice: cr[0], text: cr[1] } };
+      const ok = r.kick(gag.vel, gag.spin, {
+        onApex: (rig, x, y, z) => CT.bus.emit('ped:apex', { ped: p, x, y, z, info }),
+        onLand: (rig, x, z) => CT.bus.emit('ped:land', { ped: p, x, z, peak: rig.peak, air: rig.air, dist: Math.hypot(x - rig.sx, z - rig.sz), info, rig }),
+        onWall: (rig, x, y, z) => CT.bus.emit('ped:wall', { ped: p, x, y, z, info }),
+        onDone: null,
+      });
+      if (!ok) return;
+      info.rig = r;
+      taxi.bump(1.0 + Math.min(1.5, sp * 0.04));
+      CT.bus.emit('ped:hit', info);
+    }
+
 
     _checkHits(taxi, game) {
       const cfg = CT.config.ped, sp = taxi.totalSpeed;
@@ -176,9 +206,9 @@
       p.state = 'rag'; p.h.group.visible = false; p.stars.visible = false; p.hitCount++;
       const cr = U.pick(CRIES), info = { ped: p, x: p.x, z: p.z, speed: sp, gag, fx, fz, y: 1, level, cry: { voice: cr[0], text: cr[1] } };
       const o = {
-        x: p.x, z: p.z, y0: p.inset > 0 ? 0.3 : 0, yaw: p.yaw + Math.random() * 6, vel: gag.vel, spin: gag.spin, colors: p.colors, scale: p.sc,
+        ped: p, x: p.x, z: p.z, y0: p.inset > 0 ? 0.3 : 0, yaw: p.yaw + Math.random() * 6, vel: gag.vel, spin: gag.spin, colors: p.colors, scale: p.sc,
         onApex: (rig, x, y, z) => CT.bus.emit('ped:apex', { ped: p, x, y, z, info }),
-        onLand: (rig, x, z) => CT.bus.emit('ped:land', { ped: p, x, z, peak: rig.peak, air: rig.air, info, rig }),
+        onLand: (rig, x, z) => CT.bus.emit('ped:land', { ped: p, x, z, peak: rig.peak, air: rig.air, dist: Math.hypot(x - rig.sx, z - rig.sz), info, rig }),
         onWall: (rig, x, y, z) => CT.bus.emit('ped:wall', { ped: p, x, y, z, info }),
         onDone: () => { p.state = 'down'; p.t = 0; p.rig = null; },
       };

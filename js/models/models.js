@@ -180,12 +180,26 @@
   }
 
   /* ---- セダン(タクシーと共有) ---- */
-  function sedanGeo() {
-    if (G.sedan) return G.sedan;
+  /** open=true: オープンカー(タクシー用)。屋根/ピラーなしで、座席・ハンドル・フロントガラスを付ける */
+  function sedanGeo(open) {
+    const key = open ? 'taxiOpen' : 'sedan';
+    if (G[key]) return G[key];
     const body = [], glass = [], trim = [], lights = [];
     const lp = [[-2.2, 0.42, 0.1]]; arc(lp, -1.45, 0.42, 0.5, 8); arc(lp, 1.4, 0.42, 0.5, 8);
-    lp.push([2.2, 0.42, 0.1], [2.25, 0.7, 0.12], [2.1, 0.9, 0.22], [1.3, 1.0, 0.3], [0.75, 1.02, 0.15], [-1.5, 1.02, 0.2], [-2.2, 0.98, 0.18], [-2.26, 0.7, 0.12]);
+    lp.push([2.2, 0.42, 0.1], [2.25, 0.7, 0.12], [2.1, 0.9, 0.22], [1.3, 1.0, 0.3]);
+    if (open) lp.push([0.8, 1.02, 0.08], [0.72, 1.0, 0], [0.66, 0.74, 0], [-1.3, 0.74, 0], [-1.38, 1.0, 0], [-1.5, 1.02, 0.15], [-2.2, 0.98, 0.18], [-2.26, 0.7, 0.12]);
+    else lp.push([0.75, 1.02, 0.15], [-1.5, 1.02, 0.2], [-2.2, 0.98, 0.18], [-2.26, 0.7, 0.12]);
     put(body, prof(lp, 1.86, { bt: 0.07, bs: 0.06, seg: 3, cs: 4 }), 0);
+    if (open) {
+      // フロントガラス(低く傾斜)と枠、シート、ダッシュボード、ハンドル
+      put(glass, prof([[0.78, 1.0, 0], [0.5, 1.46, 0.02], [0.45, 1.46, 0.02], [0.72, 1.0, 0]], 1.66, { bt: 0.015, bs: 0.015, seg: 1, cs: 3 }), 0);
+      pbox(trim, 0x2a2a2a, 1.72, 0.05, 0.06, 0, 1.47, 0.47); pbox(trim, 0x2a2a2a, 0.05, 0.5, 0.05, 0.85, 1.22, 0.62); pbox(trim, 0x2a2a2a, 0.05, 0.5, 0.05, -0.85, 1.22, 0.62);
+      for (const z of [0.08, -0.95]) pbox(trim, 0x8a1f1f, 1.46, 0.2, 0.62, 0, 0.88, z);       // 座面
+      pbox(trim, 0x8a1f1f, 1.46, 0.58, 0.14, 0, 1.2, -0.28); pbox(trim, 0x8a1f1f, 1.46, 0.62, 0.14, 0, 1.22, -1.32);  // 背もたれ
+      pbox(trim, 0x2a2a2a, 1.6, 0.18, 0.3, 0, 0.98, 0.62);                                    // ダッシュボード
+      const wheel = new (T().TorusGeometry)(0.19, 0.03, 6, 14);
+      put(trim, wheel, 0x1a1a1a, [0.42, 1.12, 0.52], [-1.0, 0, 0]);
+    } else {
     // キャビン(ガラス) + 屋根 + ピラー
     put(glass, prof([[0.9, 0.98, 0], [0.4, 1.62, 0.14], [-0.95, 1.62, 0.14], [-1.42, 0.98, 0]], 1.72, { bt: 0.02, bs: 0.02, seg: 1, cs: 4 }), 0);
     put(body, prof([[0.52, 1.48, 0.04], [0.42, 1.66, 0.1], [-0.97, 1.66, 0.1], [-1.06, 1.48, 0.04]], 1.82, { bt: 0.03, bs: 0.03, seg: 2, cs: 4 }), 0);
@@ -195,6 +209,7 @@
       [[-0.2, 0.98, 0], [-0.2, 1.6, 0], [-0.3, 1.6, 0], [-0.3, 0.98, 0]],
     ];
     for (const q of pil) { const g = prof(q, 0.08, { bt: 0.01, bs: 0.01, seg: 1, cs: 2 }); for (const sx of [-1, 1]) put(body, g, 0, [sx * 0.89, 0, 0]); }
+    }
     // ホイールハウスの暗がり
     for (const [wz] of [[1.4], [-1.45]]) for (const sx of [-1, 1]) pcyl(trim, 0x15161a, 0.47, 0.47, 0.52, 12, sx * 0.71, 0.42, wz, 0, 0, Math.PI / 2);
     // バンパー
@@ -506,7 +521,7 @@
     /* ================= タクシー ================= */
     taxi(color) {
       const THREE = T(), g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-      addShell(body, sedanGeo(), color || 0xffc400);
+      addShell(body, sedanGeo(true), color || 0xffc400);
       // 側面の市松ストライプ (ドア間)
       if (!G.checker) {
         G.checker = M.canvasTex(32, 16, (c) => {
@@ -526,9 +541,8 @@
       // 屋根のTAXI行灯
       const sw = M.basic(0xfff7d6), smat = new THREE.MeshBasicMaterial({ map: G.signTex });
       const sign = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.27, 0.38), [sw, sw, sw, sw, smat, smat]);
-      sign.position.set(0, 1.84, -0.28); body.add(sign);
-      const bt = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.3), M.mat(0x2a2a2a)); bt.position.set(0, 1.72, -0.28); body.add(bt);
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 6), M.basic(0xff3030)); cap.position.set(0.5, 1.98, -0.28); body.add(cap);
+      sign.position.set(0, 1.28, -1.8); body.add(sign);
+      const bt = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.18, 0.3), M.mat(0x2a2a2a)); bt.position.set(0, 1.12, -1.8); body.add(bt);
       // ホイール
       const wheels = [];
       for (const [sx, sz, front] of [[-1.05, 1.4, true], [1.05, 1.4, true], [-1.05, -1.45, false], [1.05, -1.45, false]]) {
@@ -537,7 +551,11 @@
         wheels.push({ steer, spin, front, side: sx });
       }
       const shadow = M.blobShadow(6); shadow.scale.set(0.8, 1.15, 1); g.add(shadow);
-      return { group: g, body, wheels, shadow };
+      // 乗員 (運転手と後席の客)。座った姿勢は animHuman の 'seat'/'cheer' モードで動かす
+      const driver = M.human({ shirt: 0x2f6fd8, pants: 0x2b2b3a, scale: 1.0, hat: true }), pax = M.human({ shirt: 0xff7a5a, pants: 0x2b4a7a, scale: 1.0 });
+      driver.group.position.set(0.42, 0.18, 0.1); pax.group.position.set(-0.3, 0.18, -1.0); pax.group.visible = false;
+      body.add(driver.group, pax.group);
+      return { group: g, body, wheels, shadow, riders: { driver, passenger: pax } };
     },
 
     /* ================= 通行人(歩き用) ================= */
@@ -572,8 +590,18 @@
       const s = Math.sin(phase);
       h.root.rotation.set(0, 0, 0); h.root.position.y = 0;
       h.head.rotation.set(0, 0, 0);
-      let bend = 0; // 膝の曲げ量 (足が前に振り出される間だけ曲げる)
+      let bend = 0, seated = false; // 膝の曲げ量 (足が前に振り出される間だけ曲げる)
       switch (mode) {
+        case 'seat': // 運転手: ハンドルを握って座る
+          seated = true; h.legL.rotation.x = h.legR.rotation.x = -1.4;
+          h.armL.rotation.set(-1.05, 0, 0.1); h.armR.rotation.set(-1.05, 0, -0.1); h.head.rotation.y = Math.sin(t * 0.7) * 0.25; break;
+        case 'seatIdle': // 後席の客: 膝に手
+          seated = true; h.legL.rotation.x = h.legR.rotation.x = -1.4;
+          h.armL.rotation.set(-0.5, 0, 0.1); h.armR.rotation.set(-0.5, 0, -0.1); h.head.rotation.y = Math.sin(t * 0.9) * 0.4; break;
+        case 'cheer': // 両手を上げて大喜び (ドリフト/吹っ飛ばし)
+          seated = true; h.legL.rotation.x = h.legR.rotation.x = -1.4;
+          h.armL.rotation.set(-2.9 + Math.sin(t * 15) * 0.25, 0, 0.45); h.armR.rotation.set(-2.9 - Math.sin(t * 15) * 0.25, 0, -0.45);
+          h.root.position.y = Math.abs(Math.sin(t * 9)) * 0.07; h.head.rotation.x = -0.25; break;
         case 'run':
           h.legL.rotation.x = s * 1.0; h.legR.rotation.x = -s * 1.0;
           h.armL.rotation.x = -s * 1.1; h.armR.rotation.x = s * 1.1;
@@ -601,7 +629,7 @@
           h.root.position.y = Math.abs(s) * 0.03; bend = 0.9;
       }
       const kL = h.legL.userData.knee, kR = h.legR.userData.knee;
-      if (kL && kR) {
+      if (kL && kR && seated) { kL.rotation.x = kR.rotation.x = 1.35; } else if (kL && kR) {
         const c = Math.cos(phase);
         kL.rotation.x = bend ? Math.max(0, -c) * bend + 0.05 : 0;
         kR.rotation.x = bend ? Math.max(0, c) * bend + 0.05 : 0;

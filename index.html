@@ -2,7 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1030">
 <title>ブッ飛びタクシー BOING TAXI</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -28,12 +31,17 @@
   <div id="title">
     <div class="demo">DEMO PLAY</div>
     <div class="logo"><div class="l1 stroke">ブッ飛びタクシー</div><div class="l2 stroke">BOING TAXI</div></div>
-    <div class="press stroke">PRESS ANY KEY</div>
+    <div class="press stroke"><span class="pc">PRESS ANY KEY</span><span class="tc">TAP TO START</span></div>
     <div class="keys">↑↓←→ / WASD 運転　SPACE ドリフト　SHIFT ブースト　H クラクション　M 音ON/OFF</div>
   </div>
   <div id="result"></div>
   <div id="fps"></div>
 </div>
+<div id="touch">
+  <div class="tg left"><button data-k="left" aria-label="左">◀</button><button data-k="right" aria-label="右">▶</button></div>
+  <div class="tg right"><button data-k="boost" class="sm">BOOST</button><button data-k="drift" class="sm">DRIFT</button><button data-k="brake" class="sm">BACK</button><button data-k="gas" class="big">GO!</button></div>
+</div>
+<div id="rotate">📱 横向きにして遊んでね</div>
 <div id="loading">読み込み中…(three.js をCDNから取得します)</div>
 
 <!-- three.js のみCDN利用 (通常scriptなので file:// でも動作)。それ以外は全て自前コード -->

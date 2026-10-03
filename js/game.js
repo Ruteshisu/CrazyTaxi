@@ -71,7 +71,7 @@
       if (code === 'KeyF') { const f = document.getElementById('fps'); f.style.display = f.style.display === 'block' ? 'none' : 'block'; return; }
       if (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'ControlLeft' || code === 'MetaLeft' || code === 'AltLeft') return;
       if (this.mode === 'attract') { CT.Audio.init(); CT.Audio.startBgm(); this.startGame(); return; }
-      if (this.mode === 'result' && this.resultT > 1.2 && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter')) { this.startGame(); return; }
+      if (this.mode === 'result' && this.resultT > 1.2 && (code === 'Enter' || code === 'Space' || code === 'NumpadEnter' || code === 'Touch')) { this.startGame(); return; }
       if (code === 'KeyH') CT.bus.emit('horn');
       if (code === 'KeyR' && this.mode === 'play') this.startGame();
       if (code === 'Escape' && (this.mode === 'play' || this.mode === 'result')) this.startDemo();
@@ -152,6 +152,7 @@
         if (taxi.totalSpeed > 1) ctl.throttle = -1;
         if (this.resultT > cfg().game.resultAutoReturn) { this.startDemo(); return; }
       }
+      taxi.passengerOn = this.fare.onboard || (this.fare.cap && this.fare.cap.kind === 'drop');
       taxi.update(dt, ctl, this.world);
       this.peds.update(dt, taxi, this);
       this.world.update(dt);

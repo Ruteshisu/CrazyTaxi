@@ -30,13 +30,13 @@
       crashMinSpeed: 19,     // 衝突後の最低速度
     },
     camera: {
-      dist: 7.2, height: 2.7, lookAhead: 4.5, lookHeight: 1.5, fov: 66, // 車体後方・低め・近め
+      dist: 5.2, height: 2.15, lookAhead: 3.2, lookHeight: 1.25, fov: 62, // 車体後方・低め・近め
     },
     traffic: { cars: 40, parked: 24, speed: [9, 15], laneOffset: 3.7, parkedOffset: 7.4 },
     ramps: { count: 26, length: 13, width: 8.5, height: 3.4, boost: 1.0, vyCap: 14 },
     ped: {
       count: 230,
-      scale: 1.45,        // 人物の大きさ(1.0=約1.8m)
+      scale: 1.0,         // 人物の大きさ(1.0=約1.8m)
       groupSize: [3, 7],  // 人だかりの人数
       respawnTime: 7,     // 倒した後に別の場所へ補充される秒数
       walkSpeed: [1.5, 2.6],
@@ -58,6 +58,7 @@
       speedBonusPerMs: 4, // 速度(m/s)あたりの加点
       comboWindow: 4.0,   // コンボ継続秒
       comboMax: 10,
+      flyDistPoint: 12,   // 飛距離(m)あたり
       heightPoint: 14,    // ラグドール最高到達高さ(m)あたり
       jumpAirPoint: 220, jumpDistPoint: 14, // ジャンプ台: 滞空秒/飛距離あたり
       airPoint: 40,       // 滞空秒あたり

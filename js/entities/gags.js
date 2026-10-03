@@ -1,7 +1,7 @@
 /* 吹っ飛びパターン(ギャグ)定義。新しいパターンを足すにはGAGS配列に1つ追加するだけ。
    lv: 出現する最低レベル (0=1発目〜, 1=2-3連続〜, 2=4-6連続〜, 3=7連続〜)。連続ヒットほど派手になる。
    make(ctx) -> {vel:{x,y,z}, spin:{x,y,z}} ctx: {speed, fx, fz, lx, lz} (車の前方/左ベクトルと速度)
-   高さの目安: 頂点の高さ ≒ vy² / (2×ragdoll.gravity=17)。画面内に収まるよう Lv3でも約20m止まり */
+   高さの目安: 頂点 ≒ vy²/(2×17)。上方向は控えめ(最大約3m)、前方への飛距離を重視 */
 (function () {
   'use strict';
   const CT = (window.CT = window.CT || {});
@@ -9,19 +9,19 @@
 
   const GAGS = [
     { id: 'spring', label: 'ポヨ〜ン!', lv: 0, mult: 0.8, weight: 4, minSpeed: 0, maxSpeed: 14,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 0.45, y: U.rand(9, 12), z: c.fz * c.speed * 0.45 }, spin: { x: U.rand(-3, 3), y: U.rand(2, 5), z: U.rand(-3, 3) } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 0.8 + 3), y: U.rand(4, 6), z: c.fz * (c.speed * 0.8 + 3) }, spin: { x: U.rand(-3, 3), y: U.rand(2, 5), z: U.rand(-3, 3) } }) },
     { id: 'tumble', label: 'くるくる〜', lv: 0, mult: 1.0, weight: 3, minSpeed: 5,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 0.55, y: U.rand(10, 13), z: c.fz * c.speed * 0.55 }, spin: { x: U.rand(-7, 7), y: U.rand(-4, 4), z: U.rand(-7, 7) } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 1.0 + 4), y: U.rand(4.5, 7), z: c.fz * (c.speed * 1.0 + 4) }, spin: { x: U.rand(-7, 7), y: U.rand(-4, 4), z: U.rand(-7, 7) } }) },
     { id: 'bowling', label: 'ストライク!', lv: 0, mult: 1.0, weight: 2, minSpeed: 14,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 1.1, y: U.rand(4, 6), z: c.fz * c.speed * 1.1 }, spin: { x: c.lx * -6, y: 0, z: c.lz * -6 } }) },
+      make: (c) => ({ vel: { x: c.fx * c.speed * 1.3, y: U.rand(2.5, 4), z: c.fz * c.speed * 1.3 }, spin: { x: c.lx * -6, y: 0, z: c.lz * -6 } }) },
     { id: 'cartwheel', label: 'きりもみ回転!', lv: 1, mult: 1.2, weight: 3, minSpeed: 7,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 0.5, y: U.rand(13, 16), z: c.fz * c.speed * 0.5 }, spin: { x: U.rand(-11, 11), y: U.rand(-6, 6), z: U.rand(-11, 11) } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 1.0 + 6), y: U.rand(6, 8), z: c.fz * (c.speed * 1.0 + 6) }, spin: { x: U.rand(-11, 11), y: U.rand(-6, 6), z: U.rand(-11, 11) } }) },
     { id: 'homerun', label: 'ホームラン!', lv: 1, mult: 1.3, weight: 3, minSpeed: 12,
-      make: (c) => ({ vel: { x: c.fx * (c.speed * 0.9 + 8), y: U.rand(12, 15), z: c.fz * (c.speed * 0.9 + 8) }, spin: { x: c.lx * -9, y: 0, z: c.lz * -9 } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 1.2 + 12), y: U.rand(6, 8), z: c.fz * (c.speed * 1.2 + 12) }, spin: { x: c.lx * -9, y: 0, z: c.lz * -9 } }) },
     { id: 'rocket', label: 'ロケット発射!', lv: 2, mult: 1.5, weight: 3, minSpeed: 5,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 0.2, y: U.rand(19, 22), z: c.fz * c.speed * 0.2 }, spin: { x: 0, y: U.rand(12, 18), z: 0 } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 1.2 + 16), y: U.rand(7, 9), z: c.fz * (c.speed * 1.2 + 16) }, spin: { x: 0, y: U.rand(12, 18), z: 0 } }) },
     { id: 'star', label: 'お星様になった!', lv: 3, mult: 2.2, weight: 2.5, minSpeed: 16,
-      make: (c) => ({ vel: { x: c.fx * c.speed * 0.1, y: U.rand(25, 29), z: c.fz * c.speed * 0.1 }, spin: { x: 0, y: 22, z: 0 } }) },
+      make: (c) => ({ vel: { x: c.fx * (c.speed * 1.4 + 24), y: U.rand(9, 11), z: c.fz * (c.speed * 1.4 + 24) }, spin: { x: 0, y: 22, z: 0 } }) },
   ];
 
   CT.Gags = {

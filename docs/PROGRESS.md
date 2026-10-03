@@ -25,6 +25,15 @@
 - 公開: `tools/build_dist.py` で1ファイル化、`tools/publish_pages.ps1`、手順は docs/PUBLISH.md
 - **未検証**: BGM/SEの音(聞けない環境)。スタジアム内部・ビーチ・工業地帯などは一部しか目視していない
 
+## 第4回改修
+- カメラ: 原作寄りに接近 (dist 5.2 / height 2.15 / fov 62)。通行人スケールは 1.0 に戻した(タクシーとの比率を元に)
+- タクシー: オープンカー化。運転手(ハンドル握り)と後席の客が見える。ドリフト/人ヒット/ジャンプ着地/物ヒットで両手を上げて喜ぶ(`taxi._riders`)
+- 吹っ飛ばし: 上方向 vy を大幅減(約2〜5m)、前方速度を強化 (`gags.js`)。着地の得点は高さ→**飛距離**中心(`score.flyDistPoint`)
+- 倒れたラグドールの再ヒット: `Rig.kick` / `Pedestrians._checkRigs`(コンボ・SE・得点も通常通り)
+- スマホ: タッチ操作(仮想ボタン)。`input.js _initTouch` / `index.html #touch`。**実機未検証**
+- 公開: 全公開の単一リポジトリ方式に変更 (docs/PUBLISH.md)。`publish_pages.ps1` は削除
+- **未検証**: 音、タッチ実機
+
 ## 作業ログ (概略)
 1. 計画(docs/PLAN.md) → 質疑: 作業場所/見た目/デモ構成/ルールを確認
 2. core(util/config/input/audio) → models → world → taxi → ragdoll/ped → effects/score/fare/camera/hud → AI → game

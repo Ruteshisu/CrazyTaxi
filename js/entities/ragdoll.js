@@ -92,7 +92,7 @@
         const vx = v.x + (w.y * rz - w.z * ry), vy = v.y + (w.z * rx - w.x * rz), vz = v.z + (w.x * ry - w.y * rx);
         p.px = p.x - vx * dt0; p.py = p.y - vy * dt0; p.pz = p.z - vz * dt0;
       });
-      this.age = 0; this.air = 0; this.peak = 0; this.landed = false; this.restT = 0;
+      this.sx = cx; this.sz = cz; this.age = 0; this.air = 0; this.peak = 0; this.landed = false; this.restT = 0;
       this.apexFired = false; this.prevVy = v.y; this.wallHits = 0; this.wallCd = 0; this.acc = 0; this.bounces = 0;
       this.render();
     }
@@ -152,7 +152,7 @@
       }
       const pel = pts[2], vy = pel.y - pel.py;
       if (pel.y > this.peak) this.peak = pel.y;
-      if (!this.apexFired && this.peak > 10 && this.prevVy > 0 && vy <= 0) { this.apexFired = true; o.onApex && o.onApex(this, pel.x, pel.y, pel.z); }
+      if (!this.apexFired && this.peak > 3.2 && this.prevVy > 0 && vy <= 0) { this.apexFired = true; o.onApex && o.onApex(this, pel.x, pel.y, pel.z); }
       this.prevVy = vy;
       if (!grounded) this.air += h;
       if (grounded && !this.landed && this.age > 0.25) {
@@ -162,6 +162,22 @@
       let ke = 0; for (const p of pts) ke += Math.abs(p.x - p.px) + Math.abs(p.z - p.pz) + Math.abs(p.y - p.py);
       if (grounded && this.landed && ke / pts.length < 0.012) this.restT += h; else this.restT = 0;
       if (this.restT > 0.5 || this.age > cfg.maxLife) this.settle();
+    }
+
+    /** 倒れて静止中のラグドールをもう一度蹴り飛ばす。o2: 新しいコールバック群(onLand等) */
+    kick(vel, spin, o2) {
+      if (!this.active || !this.sleeping) return false;
+      const pts = this.pts, dt0 = 1 / 60, w = spin || { x: 0, y: 0, z: 0 }, c = pts[2];
+      this.o = Object.assign({}, this.o, o2); this.sleeping = false;
+      pts.forEach((p) => {
+        const rx = p.x - c.x, ry = p.y - c.y, rz = p.z - c.z;
+        const vx = vel.x + (w.y * rz - w.z * ry), vy = vel.y + (w.z * rx - w.x * rz), vz = vel.z + (w.x * ry - w.y * rx);
+        p.px = p.x - vx * dt0; p.py = p.y - vy * dt0; p.pz = p.z - vz * dt0;
+        p.y += 0.05;
+      });
+      this.sx = c.x; this.sz = c.z; this.age = 0; this.air = 0; this.peak = c.y; this.landed = false; this.restT = 0;
+      this.apexFired = false; this.prevVy = vel.y; this.wallCd = 0; this.acc = 0;
+      return true;
     }
 
     /** 静止: そのまま倒れた姿で残す (シミュレーションだけ止める) */

@@ -45,10 +45,11 @@
       if (!this.enabled) return;
       const mult = 1 + (((e.info && e.info.mult) || 1) - 1) * 0.4;
       this.bestHeight = Math.max(this.bestHeight, e.peak);
-      const pts = (e.peak * this.cfg.heightPoint + e.air * this.cfg.airPoint) * mult;
+      const dist = e.dist || 0;
+      const pts = (e.peak * this.cfg.heightPoint + e.air * this.cfg.airPoint + dist * (this.cfg.flyDistPoint || 12)) * mult;
       if (pts < 60) return;
-      const lbl = e.peak > 22 ? '大気圏突破!' : e.peak > 14 ? 'ナイスなアート!' : e.peak > 7 ? 'まあまあアート' : 'ちょい跳ね';
-      this.add(pts, { kind: 'land', label: lbl + ' ' + Math.round(e.peak) + 'm', x: e.x, y: 1.5, z: e.z });
+      const lbl = dist > 45 ? '超ロングシュート!' : dist > 28 ? 'ナイスな飛距離!' : dist > 14 ? 'まあまあ飛んだ' : 'ちょい跳ね';
+      this.add(pts, { kind: 'land', label: lbl + ' ' + Math.round(dist) + 'm', x: e.x, y: 1.5, z: e.z });
     }
     onWall(e) {
       if (!this.enabled) return;
