@@ -44,6 +44,13 @@
       p.state = 'walk'; p.speed = U.rand(...CT.config.ped.walkSpeed); p.t = 0; p.h.group.visible = true;
       p.stars.visible = false; this._face(p);
     }
+    /** 指定ブロックの辺(side 0..3)の上、辺内位置f(0..1)に置く (デモの人だかり用) */
+    placeAt(p, bi, bj, side, f, inset) {
+      p.bi = bi; p.bj = bj; p.inset = inset; p.dir = 1;
+      const a = this.world.perimeterPoint(bi, bj, side + f, inset);
+      p.x = a.x; p.z = a.z; p.c = (side + 1) % 4; this._setTarget(p);
+      p.state = 'walk'; p.speed = U.rand(1.4, 2.0); p.t = 0; p.h.group.visible = true; p.stars.visible = false; this._face(p);
+    }
     placeNear(p, x, z, spread) { // 指定位置の近くのレールに置く(デモ演出用)
       for (let n = 0; n < 200; n++) {
         this._place(p);
