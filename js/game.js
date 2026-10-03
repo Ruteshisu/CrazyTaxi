@@ -16,7 +16,7 @@
       this.taxi = new CT.Taxi(this.scene);
       this.pool = new CT.RagdollPool(this.scene, cfg().ragdoll.rigs);
       this.peds = new CT.Pedestrians(this.scene, this.world, this.pool);
-      this.props = new CT.Props(this.scene, this.world, 90);
+      this.props = new CT.Props(this.scene, this.world, 170);
       this.traffic = new CT.Traffic(this.scene, this.world);
       this.fx = new CT.Effects(this.scene, this.camera);
       this.score = new CT.Score();
@@ -52,6 +52,12 @@
       bus.on('key:down', (code) => this.onKey(code));
       // スローモーションはコンボ3以上の時だけ (1発目はテンポよく)
       bus.on('ped:hit', (e) => { if (e.speed > 7 && this.score.combo >= 3 && this.mode !== 'result') this.slowT = cfg().game.hitStop * (1 + (e.level || 0) * 0.5); });
+      // 一定点数を超えた状態でお客さんを乗せるとBGMが切り替わる
+      bus.on('pickup', () => {
+        if (this.mode !== 'play') return;
+        const n = cfg().game.bgmSteps.filter((v) => this.score.total >= v).length;
+        if (n > (this.bgmLevel || 0)) { this.bgmLevel = n; CT.Audio.setTrack(n % CT.Audio.tracks.length); }
+      });
       bus.on('deliver', (e) => {
         if (this.mode === 'play') this.time += e.timeBonus;
         this.score.deliveries++;
@@ -75,8 +81,8 @@
     setupScene() {
       const W = this.world;
       this.pool.clear(); this.fx.clear(); this.props.reset();
-      const bi = 2, bj = 3; // 人だかりを作るブロック(道路側の辺)
-      const x0 = W.blockCenter(bi) - 120, z0 = W.lineZ(3);
+      const bi = 4, bj = 5; // 人だかりを作るブロック(道路側の辺)
+      const x0 = W.blockCenter(bi) - 120, z0 = W.lineZ(5);
       this.taxi.reset(x0, z0, Math.PI / 2);
       this.peds.reset();
       const crowd = this.peds.list.slice(0, 12);
@@ -92,7 +98,7 @@
       CT.HUD.setMode('attract'); CT.bus.emit('mode', 'attract');
     }
     startGame() {
-      this.mode = 'ready'; this.setupScene();
+      this.mode = 'ready'; this.setupScene(); this.bgmLevel = 0; if (CT.Audio.bgmOn) CT.Audio.setTrack(0);
       this.score.reset(); this.time = cfg().game.startTime; this.playTime = 0;
       this.readyT = cfg().game.readyTime; this.lastCount = -1;
       CT.HUD.setMode('play'); CT.bus.emit('mode', 'play');
@@ -133,7 +139,7 @@
         else if (this.demoT > 75) { this.startDemo(); return; }
       } else if (this.mode === 'play') {
         ctl = CT.Input.getControls(dt);
-        this.time -= real; this.playTime += real;
+        if (!this.fare.busy) { this.time -= real; this.playTime += real; }
         if (this.time <= 0) { this.time = 0; this.endGame(); }
       } else if (this.mode === 'ready') {
         CT.Input.getControls(dt); ctl = { throttle: 0, steer: 0, handbrake: false, boost: false };
@@ -148,6 +154,7 @@
       }
       taxi.update(dt, ctl, this.world);
       this.peds.update(dt, taxi, this);
+      this.world.update(dt);
       this.props.update(dt, taxi);
       this.traffic.update(dt, taxi);
       this.pool.focus.x = taxi.x; this.pool.focus.z = taxi.z;

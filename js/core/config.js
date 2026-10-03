@@ -5,12 +5,12 @@
   CT.config = {
     title: 'ブッ飛びタクシー',
     world: {
-      blocks: 7,          // 一辺のブロック数
+      blocks: 11,         // 一辺のブロック数
       blockSize: 50,      // ブロック一辺(m) (歩道含む)
       roadWidth: 20,      // 道幅(m)
       sidewalk: 4,        // 歩道幅(m)
       seed: 20261003,
-      fogNear: 120, fogFar: 520,
+      fogNear: 170, fogFar: 760,
     },
     taxi: {
       maxSpeed: 34,       // m/s (約122km/h)
@@ -32,10 +32,10 @@
     camera: {
       dist: 7.2, height: 2.7, lookAhead: 4.5, lookHeight: 1.5, fov: 66, // 車体後方・低め・近め
     },
-    traffic: { cars: 26, parked: 14, speed: [9, 15], laneOffset: 3.7, parkedOffset: 7.4 },
-    ramps: { count: 16, length: 13, width: 8.5, height: 3.4, boost: 1.0, vyCap: 14 },
+    traffic: { cars: 40, parked: 24, speed: [9, 15], laneOffset: 3.7, parkedOffset: 7.4 },
+    ramps: { count: 26, length: 13, width: 8.5, height: 3.4, boost: 1.0, vyCap: 14 },
     ped: {
-      count: 150,
+      count: 230,
       scale: 1.45,        // 人物の大きさ(1.0=約1.8m)
       groupSize: [3, 7],  // 人だかりの人数
       respawnTime: 7,     // 倒した後に別の場所へ補充される秒数
@@ -47,7 +47,7 @@
       hitFront: 2.9, hitBack: 2.2,
     },
     ragdoll: {
-      rigs: 44,           // 同時に残せる倒れた人数(古い/遠いものから消える)
+      rigs: 56,           // 同時に残せる倒れた人数(古い/遠いものから消える)
       gravity: 17,
       damping: 0.997,
       iterations: 5,
@@ -70,15 +70,16 @@
       startTime: 75,
       readyTime: 2.2,
       resultAutoReturn: 25, // 結果画面から自動でデモに戻る秒数
+      bgmSteps: [5000, 15000, 30000, 50000, 75000], // 超えた状態で客を乗せるとBGM切替(曲0→1→2…)
       hitStop: 0.11,        // ヒット時スローモーション秒(実時間)。コンボ3以上で発動
     },
     fare: {
-      spots: 12,            // 同時に散らばる客の数
-      pickupRadius: 7.5, dropRadius: 9, stopSpeed: 13,
+      spots: 16,            // 同時に散らばる客の数
+      pickupRadius: 11, dropRadius: 17, stopSpeed: 13, // 輪に入ると自動で急ブレーキ→乗降
       tiers: [ // 距離帯: 色 / 距離(m) / 基本料金 / 時間ボーナス基準
-        { name: 'near', color: 0x38e060, dist: [90, 190], base: 180, time: 12 },
-        { name: 'mid', color: 0xffd23a, dist: [190, 330], base: 380, time: 20 },
-        { name: 'far', color: 0xff4b4b, dist: [330, 520], base: 700, time: 30 },
+        { name: 'near', color: 0x38e060, dist: [110, 230], base: 180, time: 12 },
+        { name: 'mid', color: 0xffd23a, dist: [230, 430], base: 380, time: 20 },
+        { name: 'far', color: 0xff4b4b, dist: [430, 720], base: 700, time: 30 },
       ],
     },
     render: {

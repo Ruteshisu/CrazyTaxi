@@ -10,6 +10,7 @@
   const HAIR = [0x2b1d12, 0x5a3a1c, 0x111111, 0xd9b44a, 0xb04a2a, 0xdddddd];
   const SKIN = [0xf3c9a0, 0xe0a878, 0xc68642, 0xffdbb5];
 
+  const CRIES = [['gya', 'ぎゃー!'], ['gyo', 'ぐぎょー!'], ['uwa', 'うわぁー!'], ['hee', 'ひぇー!'], ['gefu', 'ぐえっ!'], ['oioi', 'オイオイ!'], ['kya', 'きゃー!'], ['bho', 'ぼへー'], ['hya', 'ひゃー!'], ['wah', 'わぁー!']];
   class Pedestrians {
     constructor(scene, world, pool) {
       this.scene = scene; this.world = world; this.pool = pool; this.list = [];
@@ -173,7 +174,7 @@
       const level = CT.Gags.levelFor(((game && game.score && game.score.enabled) ? game.score.combo : 0) + 1);
       const gag = CT.Gags.pick(sp, ctx, level);
       p.state = 'rag'; p.h.group.visible = false; p.stars.visible = false; p.hitCount++;
-      const info = { ped: p, x: p.x, z: p.z, speed: sp, gag, fx, fz, y: 1, level };
+      const cr = U.pick(CRIES), info = { ped: p, x: p.x, z: p.z, speed: sp, gag, fx, fz, y: 1, level, cry: { voice: cr[0], text: cr[1] } };
       const o = {
         x: p.x, z: p.z, y0: p.inset > 0 ? 0.3 : 0, yaw: p.yaw + Math.random() * 6, vel: gag.vel, spin: gag.spin, colors: p.colors, scale: p.sc,
         onApex: (rig, x, y, z) => CT.bus.emit('ped:apex', { ped: p, x, y, z, info }),

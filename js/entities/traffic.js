@@ -174,7 +174,7 @@
       c.t += dt; c.vy -= 24 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt;
       g.rotation.x += c.wx * dt; g.rotation.y += c.wy * dt; g.rotation.z += c.wz * dt;
       // 建物に当たったら止める
-      for (const b of this.world.boxes) {
+      for (const b of this.world.nearBoxes(c.x, c.z)) {
         if (b.h < 2 || c.y > b.h || c.x < b.minx - 1 || c.x > b.maxx + 1 || c.z < b.minz - 1 || c.z > b.maxz + 1) continue;
         c.vx *= -0.3; c.vz *= -0.3; c.x -= Math.sign(c.vx || 1) * 0.5; break;
       }

@@ -22,7 +22,7 @@
       this.grip = this.cfg.gripNormal;
       this.boost = 1; this.boosting = false; this.steerVis = 0;
       this.roll = 0; this.pitch = 0; this.wheelSpin = 0; this.accel = 0; this.lastCtl = { throttle: 0, steer: 0 };
-      this.crashCooldown = 0;
+      this.crashCooldown = 0; this.autoBrake = false;
       this.spinT = 0; this.spinDur = 0; this.spinH0 = 0; this.spinTotal = 0; this.spinRoll = 1;
       this.air = false; this.airT = 0; this.fromRamp = false; this.airPeak = 0; this.airStartX = 0; this.airStartZ = 0;
       this.sync();
@@ -40,6 +40,11 @@
     bump(vy) { if (this.y < 0.3) this.vy = Math.max(this.vy, vy); }
 
     update(dt, ctl, world) {
+      if (this.autoBrake) { // 客の輪の中: 操作を無視して急ブレーキ (乗降用)
+        ctl = { throttle: -1, steer: 0, handbrake: false, boost: false };
+        const k = Math.exp(-2.5 * dt); this.vx *= k; this.vz *= k;
+        if (this.totalSpeed < 1.2) { this.vx = this.vz = 0; this.speed = 0; }
+      }
       const n = Math.max(1, Math.ceil(dt / (1 / 90)));
       const sdt = dt / n;
       for (let i = 0; i < n; i++) this._step(sdt, ctl, world);
@@ -158,7 +163,7 @@
       const r = this.cfg.radius, offs = [1.45, 0, -1.45];
       for (const o of offs) {
         const cx = this.x + this.fx * o, cz = this.z + this.fz * o;
-        for (const b of world.boxes) {
+        for (const b of world.nearBoxes(cx, cz)) {
           if (b.h < 0.45 || this.y > b.h - 0.2) continue;
           if (cx < b.minx - r || cx > b.maxx + r || cz < b.minz - r || cz > b.maxz + r) continue;
           const px = U.clamp(cx, b.minx, b.maxx), pz = U.clamp(cz, b.minz, b.maxz);

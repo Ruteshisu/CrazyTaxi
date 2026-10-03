@@ -27,18 +27,19 @@
     reset(taxi) {
       for (const s of this.spots) this.root.remove(s.obj);
       if (this.dest) this.root.remove(this.dest.obj);
-      this.spots = []; this.current = null; this.dest = null;
+      this.spots = []; this.current = null; this.dest = null; this.cap = null;
+      if (this.passenger) { this.root.remove(this.passenger.group); this.passenger = null; }
       this.arrow.visible = true;
       for (let i = 0; i < this.cfg.spots; i++) this._spawn(taxi, i === 0 ? 0 : i);
     }
     hideArrow() { this.arrow.visible = false; }
     _marker(color, big) {
-      const g = new THREE.Group();
-      const ring = new THREE.Mesh(new THREE.RingGeometry(big ? 6.6 : 5.2, big ? 8.2 : 6.6, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+      const g = new THREE.Group(), RR = big ? this.cfg.dropRadius : this.cfg.pickupRadius;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(RR - 1.5, RR, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.45; ring.renderOrder = 3; g.add(ring);
-      const pil = new THREE.Mesh(new THREE.CylinderGeometry(big ? 6.5 : 4.5, big ? 6.5 : 4.5, 80, 20, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+      const pil = new THREE.Mesh(new THREE.CylinderGeometry(RR * 0.8, RR * 0.8, 80, 28, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false }));
       pil.position.y = 40; g.add(pil);
-      const arr = CT.Models.arrowMarker(color); arr.scale.setScalar(big ? 2.4 : 2.0); arr.position.y = 13; g.add(arr);
+      const arr = CT.Models.arrowMarker(color); arr.scale.setScalar(big ? 3.0 : 2.2); arr.position.y = 13; g.add(arr);
       g.userData = { ring, pil, arr };
       return g;
     }
@@ -70,6 +71,7 @@
 
     update(dt, taxi, game) {
       this.t += dt;
+      if (this.passengerT > 0) { this.passengerT -= dt; if (this.passengerT <= 0 && this.passenger) { this.root.remove(this.passenger.group); this.passenger = null; } }
       const pulse = 1 + Math.sin(this.t * 5) * 0.05;
       const tg = this.target(taxi);
       for (const s of this.spots) {
@@ -90,17 +92,60 @@
         const sc = 0.62 + Math.sin(this.t * 6) * 0.03; a.scale.set(sc, sc, sc);
       } else this.arrow.visible = false;
       const sp = taxi.totalSpeed;
+      if (this.cap) { this._cap(dt, taxi, game); return; }
+      if (taxi.y > 1 || taxi.spinning) return;
       if (!this.current) {
         for (const s of this.spots) {
-          const d = Math.hypot(s.x - taxi.x, s.z - taxi.z);
-          if (d < this.cfg.pickupRadius && sp < this.cfg.stopSpeed && taxi.y < 1) { this._board(s, taxi, game); break; }
+          if (Math.hypot(s.x - taxi.x, s.z - taxi.z) < this.cfg.pickupRadius) { this._startCap('pick', s, taxi); break; }
         }
       } else {
         const d = Math.hypot(this.dest.x - taxi.x, this.dest.z - taxi.z);
         this.current.dist2dest = d;
-        if (d < this.cfg.dropRadius && sp < this.cfg.stopSpeed && taxi.y < 1) this._deliver(taxi, game);
+        if (d < this.cfg.dropRadius) this._startCap('drop', null, taxi);
+      }
+      void sp;
+    }
+    get busy() { return !!this.cap; }
+    /** 輪に入った: 急ブレーキ → 停車したら乗降の演出(1.7秒) */
+    _startCap(kind, spot, taxi) {
+      this.cap = { kind, spot, phase: 'brake', t: 0, ct: 0 };
+      taxi.autoBrake = true; CT.bus.emit('fare:brake', { kind });
+    }
+    _cap(dt, taxi, game) {
+      const c = this.cap; c.t += dt;
+      const lx = Math.cos(taxi.h), lz = -Math.sin(taxi.h); // 左ドア側
+      if (c.phase === 'brake') {
+        if (taxi.totalSpeed < 1.5 || c.t > 1.6) {
+          taxi.vx = taxi.vz = 0; taxi.speed = 0; c.phase = 'cine'; c.ct = 0; c.dur = 1.8;
+          CT.bus.emit('cine', { kind: c.kind, dur: c.dur, x: taxi.x, z: taxi.z });
+          if (c.kind === 'drop') this._deliver(taxi, game, true);
+          else { c.s0 = { x: c.spot.x, z: c.spot.z }; c.spot.obj.userData.pil.visible = false; }
+        }
+        return;
+      }
+      taxi.vx = taxi.vz = 0; c.ct += dt;
+      const door = { x: taxi.x + lx * 2.0, z: taxi.z + lz * 2.0 };
+      if (c.kind === 'pick') {
+        const s = c.spot, p = Math.min(1, c.ct / 1.0), e = p * p * (3 - 2 * p);
+        const wx = U.lerp(c.s0.x, door.x, e), wz = U.lerp(c.s0.z, door.z, e);
+        s.cust.group.position.set(wx - s.obj.position.x, 0.3, wz - s.obj.position.z);
+        s.cust.group.rotation.y = Math.atan2(door.x - c.s0.x, door.z - c.s0.z);
+        CT.Models.animHuman(s.cust, p < 1 ? 'walk' : 'wave', c.ct * 9, c.ct);
+        if (c.ct > 1.15) s.cust.group.scale.setScalar(Math.max(0.01, 1 - (c.ct - 1.15) * 4));
+        if (c.ct >= c.dur) { s.cust.group.scale.setScalar(1); this._board(s, taxi, game); this._endCap(taxi); }
+      } else {
+        const pg = this.passenger;
+        if (pg) {
+          const p = Math.min(1, c.ct / 1.5), e = 1 - (1 - p) * (1 - p);
+          const ox = door.x + lx * 0.2, oz = door.z + lz * 0.2, tx = taxi.x + lx * 3.2 + Math.sin(taxi.h) * 6.5, tz = taxi.z + lz * 3.2 + Math.cos(taxi.h) * 6.5;
+          pg.group.position.set(U.lerp(ox, tx, e), 0.3, U.lerp(oz, tz, e)); pg.group.rotation.y = Math.atan2(tx - ox, tz - oz);
+          pg.group.scale.setScalar(Math.min(1, c.ct * 6));
+          CT.Models.animHuman(pg, p < 1 ? 'walk' : 'wave', c.ct * 9, c.ct);
+        }
+        if (c.ct >= c.dur) this._endCap(taxi);
       }
     }
+    _endCap(taxi) { taxi.autoBrake = false; this.cap = null; if (this.passenger) { this.passengerT = 3; } }
 
     _board(s, taxi, game) {
       const tier = s.tier;
@@ -115,7 +160,7 @@
       CT.bus.emit('pickup', { x: s.x, z: s.z, tier, dist });
     }
 
-    _deliver(taxi, game) {
+    _deliver(taxi, game, cine) {
       const c = this.current, tier = c.tier;
       const ride = Math.max(1, game.playTime - c.startT), ideal = c.dist / 20;
       const ratio = U.clamp(ideal / ride, 0.3, 1.4);
@@ -126,6 +171,11 @@
       const info = { x: this.dest.x, z: this.dest.z, money, tip, timeBonus, rating, tier, dist: c.dist, ride };
       this.root.remove(this.dest.obj); this.dest = null; this.current = null;
       CT.bus.emit('deliver', info);
+      if (cine) { // 降りるお客さん (ドア側から出て歩き去る)
+        if (this.passenger) this.root.remove(this.passenger.group);
+        this.passenger = CT.Models.human({ shirt: U.pick([0xff5050, 0x3fa7ff, 0xb07cff, 0xffd23a]), pants: 0x2b4a7a, scale: 1.05 * CT.config.ped.scale });
+        this.passenger.group.scale.setScalar(0.01); this.root.add(this.passenger.group);
+      }
       while (this.spots.length < this.cfg.spots) this._spawn(taxi, this.spots.length, true);
     }
   }

@@ -19,8 +19,8 @@
   const RAD = [0.2, 0.1, 0.12, 0.08, 0.08, 0.08, 0.08, 0.1, 0.08, 0.1, 0.08];
   // 描画する棒 [stick index, 太さ, 色種別]
   const LIMBS = [
-    [1, 0.2, 'shirt'], [2, 0.075, 'shirt'], [3, 0.065, 'skin'], [4, 0.075, 'shirt'], [5, 0.065, 'skin'],
-    [6, 0.09, 'pants'], [7, 0.085, 'pants'], [8, 0.09, 'pants'], [9, 0.085, 'pants'],
+    [0, 0.06, 'skin'], [1, 0.23, 'shirt'], [2, 0.085, 'shirt'], [3, 0.07, 'skin'], [4, 0.085, 'shirt'], [5, 0.07, 'skin'],
+    [6, 0.105, 'pants'], [7, 0.09, 'pants'], [8, 0.105, 'pants'], [9, 0.09, 'pants'],
   ];
 
   class Rig {
@@ -33,29 +33,38 @@
         skin: new THREE.MeshLambertMaterial({ color: 0xf3c9a0 }),
         hair: new THREE.MeshLambertMaterial({ color: 0x332211 }),
       };
-      const cyl = new THREE.CylinderGeometry(1, 1, 1, 7);
+      // 手足/胴: 付け根(A側=下端)が太く先(B側)が細いテーパー円柱
+      const cyl = new THREE.CylinderGeometry(0.75, 1, 1, 10);
       this.limbs = LIMBS.map(([si, r, kind]) => {
         const m = new THREE.Mesh(cyl, this.mats[kind]); m.scale.set(r, 1, r); this.group.add(m);
         return { m, si, r };
       });
-      // 足/手の丸
-      const sph = new THREE.SphereGeometry(1, 7, 6);
-      this.balls = [[4, 0.085, 'skin'], [6, 0.085, 'skin'], [8, 0.12, 'shoe'], [10, 0.12, 'shoe']].map(([pi, r, k]) => {
-        const m = new THREE.Mesh(sph, k === 'shoe' ? M.mat(0x222222) : this.mats.skin); m.scale.setScalar(r); this.group.add(m); return { m, pi, r };
+      // 関節/手/足の丸 (肩・腰・肘・膝・手・靴)
+      const sph = new THREE.SphereGeometry(1, 8, 6), shoe = M.mat(0x222222);
+      this.balls = [[1, 0.13, 'shirt'], [2, 0.14, 'pants'], [3, 0.075, 'skin'], [5, 0.075, 'skin'], [7, 0.1, 'pants'], [9, 0.1, 'pants'],
+        [4, 0.085, 'skin'], [6, 0.085, 'skin'], [8, 0.13, 'shoe'], [10, 0.13, 'shoe']].map(([pi, r, k]) => {
+        const m = new THREE.Mesh(sph, k === 'shoe' ? shoe : this.mats[k]); m.scale.setScalar(r); this.group.add(m); return { m, pi, r };
       });
-      // 頭 (前後に顔: 「目が点/ O口」)
-      const head = new THREE.Group();
-      head.add(new THREE.Mesh(new THREE.SphereGeometry(0.23, 10, 8), this.mats.skin));
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.245, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), this.mats.hair);
-      head.add(cap);
+      // 頭 (前後に顔: 「目が点/ O口」。髪・耳・眉・鼻つき)
+      const head = new THREE.Group(), hs = this.mats.skin, hh = this.mats.hair;
+      head.add(new THREE.Mesh(new THREE.SphereGeometry(0.23, 14, 10), hs));
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hh);
+      cap.rotation.x = -0.1; head.add(cap);
       const white = M.basic(0xffffff), black = M.basic(0x111111), eg = new THREE.SphereGeometry(1, 8, 6);
       for (const sz of [1, -1]) for (const sx of [-1, 1]) {
         const e = new THREE.Mesh(eg, white); e.scale.setScalar(0.075); e.position.set(sx * 0.09, 0.03, sz * 0.18); head.add(e);
         const p = new THREE.Mesh(eg, black); p.scale.setScalar(0.035); p.position.set(sx * 0.09, 0.03, sz * 0.25); head.add(p);
+        const br = new THREE.Mesh(M._bg || (M._bg = new THREE.BoxGeometry(1, 1, 1)), hh); br.scale.set(0.1, 0.022, 0.03);
+        br.position.set(sx * 0.09, 0.115, sz * 0.2); br.rotation.z = sx * sz * -0.15; head.add(br);
+      }
+      for (const sx of [-1, 1]) {
+        const ear = new THREE.Mesh(eg, hs); ear.scale.set(0.035, 0.06, 0.04); ear.position.set(sx * 0.23, 0, 0); head.add(ear);
       }
       for (const sz of [1, -1]) {
         const mo = new THREE.Mesh(eg, black); mo.scale.set(0.06, 0.08, 0.04); mo.position.set(0, -0.1, sz * 0.2); head.add(mo);
       }
+      const nose = new THREE.Mesh(eg, hs); nose.scale.set(0.035, 0.045, 0.04); nose.position.set(0, -0.03, 0.225); head.add(nose);
+      const tuft = new THREE.Mesh(eg, hh); tuft.scale.set(0.05, 0.1, 0.05); tuft.position.set(0, 0.27, 0); tuft.rotation.z = 0.4; head.add(tuft);
       this.group.add(head); this.head = head;
       this.pts = POSE.map(() => ({ x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0 }));
       this.baseRest = STICKS.map(([a, b]) => Math.hypot(POSE[a][0] - POSE[b][0], POSE[a][1] - POSE[b][1], POSE[a][2] - POSE[b][2]));
@@ -126,7 +135,7 @@
           grounded = true;
         }
         // 建物
-        if (world) for (const b of world.boxes) {
+        if (world) for (const b of world.nearBoxes(p.x, p.z)) {
           if (p.y > b.h + 0.1 || p.x < b.minx - 0.2 || p.x > b.maxx + 0.2 || p.z < b.minz - 0.2 || p.z > b.maxz + 0.2) continue;
           const dl = p.x - b.minx, dr = b.maxx - p.x, df = p.z - b.minz, db = b.maxz - p.z;
           const m = Math.min(dl, dr, df, db);

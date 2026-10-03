@@ -19,7 +19,7 @@
     const t = g.taxi;
     box.textContent = (errs.length ? 'ERR: ' + errs.slice(-3).join(' | ') + '\n' : '') +
       'fps=' + fps + ' ' + g.mode + ' t=' + g.time.toFixed(1) + ' art=' + Math.round(g.score.art) + ' fare=' + Math.round(g.score.money) + ' hits=' + g.score.hits + ' deliv=' + g.score.deliveries +
-      ' pos=' + t.x.toFixed(0) + ',' + t.z.toFixed(0) + ' v=' + t.speed.toFixed(1) + ' slip=' + t.slip.toFixed(1) + ' rigs=' + g.pool.activeCount + ' air=' + t.air + ' y=' + t.y.toFixed(1) + ' spin=' + t.spinning + ' lv=' + g.score.combo + (hold ? ' HOLD' : '') + '\nEV ' + evl.join(' ') + (g.mode === 'attract' ? '\nAI ' + (g.driver.dbg || '') : '');
+      ' pos=' + t.x.toFixed(0) + ',' + t.z.toFixed(0) + ' v=' + t.speed.toFixed(1) + ' slip=' + t.slip.toFixed(1) + ' rigs=' + g.pool.activeCount + ' air=' + t.air + ' y=' + t.y.toFixed(1) + ' spin=' + t.spinning + ' lv=' + g.score.combo + ' zone=' + (window.__zn || '') + ' trk=' + (CT.Audio.trackIndex || 0) + (hold ? ' HOLD' : '') + '\nEV ' + evl.join(' ') + (g.mode === 'attract' ? '\nAI ' + (g.driver.dbg || '') : '');
   }, 250);
   window.addEventListener('keydown', (e) => {
     const g = CT.game; if (!g) return;
@@ -30,6 +30,7 @@
     if (e.code === 'Digit6') { const r = g.world.ramps[1], t = g.taxi; t.x = r.x - r.ux * 45; t.z = r.z - r.uz * 45; t.h = Math.atan2(r.ux, r.uz); t.vx = r.ux * 22; t.vz = r.uz * 22; g.cam.snap(t); }
     if (e.code === 'Digit7') { const c = g.traffic.cars.find((q) => q.state === 'road'), t = g.taxi; if (c) { t.x = c.x - Math.sin(c.h) * 30; t.z = c.z - Math.cos(c.h) * 30; t.h = c.h; t.vx = Math.sin(c.h) * 26; t.vz = Math.cos(c.h) * 26; g.cam.snap(t); } }
     if (e.code === 'Digit8') { const b = g.world.boxes[20], t = g.taxi; t.x = b.minx - 30; t.z = (b.minz + b.maxz) / 2; t.h = Math.PI / 2; t.vx = 30; t.vz = 0; g.cam.snap(t); }
+    if (e.code === 'Digit9') { const Z = ['stadium', 'amuse', 'tower', 'beach', 'shrine', 'industrial', 'lake', 'downtown', 'house']; window.__z = ((window.__z || 0) + 1) % Z.length; const b = g.world.blocks.find((q) => q.type === Z[window.__z]), t = g.taxi; if (b) { t.x = b.cx - 60; t.z = b.cz - 35; t.h = Math.PI / 2; t.vx = 8; t.vz = 0; g.cam.snap(t); window.__zn = Z[window.__z]; } }
     if (e.code === 'Digit5') {
       const t = g.taxi;
       g.peds.list.slice(0, 10).forEach((p, i) => { p.x = t.x + t.fx * (20 + i * 4) + (i % 2 ? 3 : -3); p.z = t.z + t.fz * (20 + i * 4); p.state = 'walk'; p.tx = p.x; p.tz = p.z; });

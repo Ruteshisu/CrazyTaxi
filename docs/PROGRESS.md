@@ -16,6 +16,15 @@
 - 16:9レターボックス(`game.resize`)
 - **未検証**: BGM/効果音は実際に聞いて確認できていない(音が出せない環境)。ジャンプ・きりもみ・車ヒットは画面で動作確認済み。点数インフレ気味(コンボ×9で1回1000点超)なのでランク閾値を2倍弱に調整済み(要プレイ感確認)
 
+## 第3回改修
+- 乗降: 輪に入ると自動急ブレーキ(`taxi.autoBrake`)→停車→1.8秒の演出(`fare._cap`/`camera.cine`)。降車の輪は大きく(17m)
+- やられSE: `Audio.cry(kind)` 10種 + 吹き出し(`ped:hit` の `e.cry`)
+- BGM: `Audio.tracks` 6曲 / `setTrack` で小節頭に切替 / `game.bgmSteps` の点数を超えて客を乗せると切替
+- マップ: 11x11 に拡大・ゾーン分け・周回路。**静的ジオメトリは `Batch` でマテリアルごとに1メッシュへマージ**(描画負荷対策)。当たり判定は空間グリッド(`world.nearBoxes`)
+- モデル: タクシー/一般車/人を高精細化(押し出し形状+ベベル)、ラグドールの見た目も強化
+- 公開: `tools/build_dist.py` で1ファイル化、`tools/publish_pages.ps1`、手順は docs/PUBLISH.md
+- **未検証**: BGM/SEの音(聞けない環境)。スタジアム内部・ビーチ・工業地帯などは一部しか目視していない
+
 ## 作業ログ (概略)
 1. 計画(docs/PLAN.md) → 質疑: 作業場所/見た目/デモ構成/ルールを確認
 2. core(util/config/input/audio) → models → world → taxi → ragdoll/ped → effects/score/fare/camera/hud → AI → game

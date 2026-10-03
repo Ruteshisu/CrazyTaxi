@@ -32,10 +32,12 @@
         this.pop3d('+' + e.timeBonus + 's', e.x, 4, e.z, 'pop-time');
         this.say('deliver');
       });
-      bus.on('ped:hit', (e) => { this.say('hit', 0.55); if ((e.level || 0) >= 3) this.flash(); });
+      bus.on('bgm:track', (e) => this.bgmName(e.name));
+      bus.on('ped:hit', (e) => { if (e.cry) this.pop3d(e.cry.text, e.x, 3.4 + (e.level || 0) * 0.4, e.z, 'pop-cry'); this.say('hit', 0.55); if ((e.level || 0) >= 3) this.flash(); });
       bus.on('crash', (e) => { if (e.power > 0.35) this.say('crash', 0.6); });
       bus.on('ped:apex', (e) => this.pop3d('キラーン☆', e.x, e.y, e.z, 'pop-star'));
     },
+    bgmName(name) { const b = $('bgmName'); if (!b) return; b.textContent = '♪ ' + name; b.className = 'show'; clearTimeout(this._bn); this._bn = setTimeout(() => { b.className = ''; }, 4000); },
     flash() { const f = document.getElementById('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); },
     setMode(m) {
       document.body.dataset.mode = m;
@@ -131,19 +133,21 @@
     /* ---- ミニマップ ---- */
     initMinimap(world) {
       this.world = world;
-      const c = this.el.mini, S = c.width = c.height = 256; this.mctx = c.getContext('2d');
+      const c = this.el.mini, S = c.width = c.height = 320; this.mctx = c.getContext('2d');
       const bg = (this.mbg = document.createElement('canvas')); bg.width = bg.height = S;
       const g = bg.getContext('2d'), ext = world.half + world.R / 2 + 4, k = S / (2 * ext);
       this.mk = k; this.mext = ext;
       g.fillStyle = '#1b2433'; g.fillRect(0, 0, S, S);
+      g.strokeStyle = '#ff5a5a'; g.lineWidth = 3; const e0 = (-world.half + ext) * k, e1 = (world.half + ext) * k; g.strokeRect(e0, e0, e1 - e0, e1 - e0);
+      const ZC = { park: '#3b8c4c', lake: '#2f7fc0', stadium: '#c8503f', amuse: '#c060c0', shrine: '#b08a5a', beach: '#d8c680', industrial: '#6a6c70', house: '#5a6b7b', tower: '#e0a030', downtown: '#7a86a0', city: '#4a566b' };
       for (const b of world.blocks) {
-        g.fillStyle = b.type === 'park' ? '#3b8c4c' : '#4a566b';
+        g.fillStyle = ZC[b.type] || '#4a566b';
         g.fillRect((b.cx - world.B / 2 + ext) * k, (b.cz - world.B / 2 + ext) * k, world.B * k, world.B * k);
       }
     },
     drawMinimap(s) {
       if (!this.mctx) return;
-      const g = this.mctx, S = 256, k = this.mk, ext = this.mext, X = (x) => (x + ext) * k;
+      const g = this.mctx, S = 320, k = this.mk, ext = this.mext, X = (x) => (x + ext) * k;
       g.drawImage(this.mbg, 0, 0);
       const t = s.target;
       if (s.fare) {

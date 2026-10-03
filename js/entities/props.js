@@ -11,7 +11,7 @@
     constructor(scene, world, count) {
       this.world = world; this.scene = scene;
       this.list = [];
-      const spots = world.knockSpots.slice().sort(() => Math.random() - 0.5).slice(0, count || 90);
+      const spots = world.knockSpots.slice().sort(() => Math.random() - 0.5).slice(0, count || 160);
       for (const s of spots) {
         const mesh = CT.Models[s.kind]();
         mesh.position.set(s.x, 0.3, s.z); scene.add(mesh);

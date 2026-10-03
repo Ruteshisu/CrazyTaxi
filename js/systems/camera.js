@@ -17,6 +17,8 @@
       });
       CT.bus.on('crash', (e) => this.shake(0.3 * e.power + 0.1, 0.5 * e.power));
       CT.bus.on('jump:land', () => this.shake(0.25, 0.35));
+      CT.bus.on('cine', (e) => { this.cine = { t: 0, dur: e.dur, kind: e.kind }; });
+      this.cine = null; this.blend = 0;
     }
     shake(dur, amp) { this.shakeT = Math.max(this.shakeT, dur); this.shakeA = Math.max(this.shakeA, amp); this.punch = Math.max(this.punch, Math.min(1, amp)); }
     snap(taxi) { this.angle = taxi.h; this.inited = false; this.pull = 0; }
@@ -37,7 +39,7 @@
       const tx = taxi.x, tz = taxi.z;
       let k = 1;
       for (const b of this.world.boxes) {
-        if (b.h < cy + 1) continue;
+        if (b.h < cy + 1 || b.maxx < Math.min(tx, cx) - 2 || b.minx > Math.max(tx, cx) + 2 || b.maxz < Math.min(tz, cz) - 2 || b.minz > Math.max(tz, cz) + 2) continue;
         if (segBox(tx, tz, cx, cz, b.minx - 0.8, b.maxx + 0.8, b.minz - 0.8, b.maxz + 0.8)) {
           let lo = 0, hi = 1; for (let i = 0; i < 8; i++) { const m = (lo + hi) / 2; if (segBox(tx, tz, tx + (cx - tx) * m, tz + (cz - tz) * m, b.minx - 0.8, b.maxx + 0.8, b.minz - 0.8, b.maxz + 0.8)) hi = m; else lo = m; }
           k = Math.min(k, lo);
@@ -52,13 +54,28 @@
       this.fov = U.damp(this.fov, fovT, 5, dt);
       this.punch = U.damp(this.punch, 0, 7, dt);
       this.cam.fov = this.fov; this.cam.updateProjectionMatrix();
+      // 乗降の演出カメラ: 左ドア側から回り込みながら見せる (1〜2秒)
+      let lookT = this.look;
+      if (this.cine) {
+        this.cine.t += dt; if (this.cine.t > this.cine.dur) this.cine = null;
+      }
+      this.blend = U.damp(this.blend, this.cine ? 1 : 0, this.cine ? 10 : 6, dt);
       this.cam.position.copy(this.pos);
+      if (this.blend > 0.002) {
+        const ct = this.cine ? this.cine.t / this.cine.dur : 1, phi = U.lerp(1.0, -0.55, Math.min(1, ct));
+        const lx = Math.cos(h), lz = -Math.sin(h), fx = Math.sin(h), fz = Math.cos(h), R = 7.2;
+        const px = taxi.x + (lx * Math.cos(phi) + fx * Math.sin(phi)) * R, pz = taxi.z + (lz * Math.cos(phi) + fz * Math.sin(phi)) * R, py = 1.8 + ct * 0.7;
+        this.cam.position.set(U.lerp(this.pos.x, px, this.blend), U.lerp(this.pos.y, py, this.blend), U.lerp(this.pos.z, pz, this.blend));
+        lookT = this._lt = this._lt || new THREE.Vector3();
+        lookT.set(U.lerp(this.look.x, taxi.x + lx * 1.6, this.blend), U.lerp(this.look.y, 1.3, this.blend), U.lerp(this.look.z, taxi.z + lz * 1.6, this.blend));
+        this.cam.fov = U.lerp(this.cam.fov, 52, this.blend); this.cam.updateProjectionMatrix();
+      }
       if (this.shakeT > 0) {
         this.shakeT -= dt; const a = this.shakeA * Math.min(1, this.shakeT * 4);
         this.cam.position.x += (Math.random() - 0.5) * a; this.cam.position.y += (Math.random() - 0.5) * a; this.cam.position.z += (Math.random() - 0.5) * a;
         if (this.shakeT <= 0) this.shakeA = 0;
       }
-      this.cam.lookAt(this.look);
+      this.cam.lookAt(lookT);
       if (this.world.sky) this.world.sky.position.copy(this.cam.position);
     }
   }
