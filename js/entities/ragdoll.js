@@ -41,7 +41,7 @@
       // 足/手の丸
       const sph = new THREE.SphereGeometry(1, 7, 6);
       this.balls = [[4, 0.085, 'skin'], [6, 0.085, 'skin'], [8, 0.12, 'shoe'], [10, 0.12, 'shoe']].map(([pi, r, k]) => {
-        const m = new THREE.Mesh(sph, k === 'shoe' ? M.mat(0x222222) : this.mats.skin); m.scale.setScalar(r); this.group.add(m); return { m, pi };
+        const m = new THREE.Mesh(sph, k === 'shoe' ? M.mat(0x222222) : this.mats.skin); m.scale.setScalar(r); this.group.add(m); return { m, pi, r };
       });
       // 頭 (前後に顔: 「目が点/ O口」)
       const head = new THREE.Group();
@@ -58,34 +58,38 @@
       }
       this.group.add(head); this.head = head;
       this.pts = POSE.map(() => ({ x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0 }));
-      this.rest = STICKS.map(([a, b]) => Math.hypot(POSE[a][0] - POSE[b][0], POSE[a][1] - POSE[b][1], POSE[a][2] - POSE[b][2]));
+      this.baseRest = STICKS.map(([a, b]) => Math.hypot(POSE[a][0] - POSE[b][0], POSE[a][1] - POSE[b][1], POSE[a][2] - POSE[b][2]));
+      this.rest = this.baseRest.slice(); this.sc = 1; this.sleeping = false;
       this.active = false;
       this._v = new THREE.Vector3(); this._q = new THREE.Quaternion(); this._up = new THREE.Vector3(0, 1, 0);
     }
 
     /** o: {x,z,yaw, vel:{x,y,z}, spin:{x,y,z}, colors:{shirt,pants,skin,hair}, onLand, onWall, onApex, onDone, tag} */
     launch(o) {
-      this.active = true; this.group.visible = true; this.o = o;
+      this.active = true; this.sleeping = false; this.group.visible = true; this.o = o;
+      const sc = (this.sc = o.scale || 1); this.rest = this.baseRest.map((v) => v * sc);
+      this.head.scale.setScalar(sc);
+      for (const b of this.balls) b.m.scale.setScalar(b.r * sc);
       const c = o.colors || {};
       this.mats.shirt.color.setHex(c.shirt || 0xff5050); this.mats.pants.color.setHex(c.pants || 0x335577);
       this.mats.skin.color.setHex(c.skin || 0xf3c9a0); this.mats.hair.color.setHex(c.hair || 0x332211);
       const cs = Math.cos(o.yaw || 0), sn = Math.sin(o.yaw || 0), dt0 = 1 / 60;
       const v = o.vel, w = o.spin || { x: 0, y: 0, z: 0 };
-      const cx = o.x, cz = o.z, py = POSE[2];
+      const cx = o.x, cz = o.z, py = [POSE[2][0] * sc, POSE[2][1] * sc, POSE[2][2] * sc];
       this.pts.forEach((p, i) => {
-        const lx = POSE[i][0], ly = POSE[i][1], lz = POSE[i][2];
+        const lx = POSE[i][0] * sc, ly = POSE[i][1] * sc, lz = POSE[i][2] * sc;
         p.x = cx + lx * cs + lz * sn; p.y = ly + (o.y0 || 0); p.z = cz - lx * sn + lz * cs;
         const rx = p.x - cx, ry = p.y - (py[1] + (o.y0 || 0)), rz = p.z - cz;
         const vx = v.x + (w.y * rz - w.z * ry), vy = v.y + (w.z * rx - w.x * rz), vz = v.z + (w.x * ry - w.y * rx);
         p.px = p.x - vx * dt0; p.py = p.y - vy * dt0; p.pz = p.z - vz * dt0;
       });
-      this.age = 0; this.air = 0; this.peak = 0; this.landed = false; this.rest = this.rest; this.restT = 0;
+      this.age = 0; this.air = 0; this.peak = 0; this.landed = false; this.restT = 0;
       this.apexFired = false; this.prevVy = v.y; this.wallHits = 0; this.wallCd = 0; this.acc = 0; this.bounces = 0;
       this.render();
     }
 
     update(dt, world) {
-      if (!this.active) return;
+      if (!this.active || this.sleeping) return;
       this.acc += Math.min(dt, 0.05);
       const h = 1 / 60;
       while (this.acc >= h) { this.acc -= h; this._step(h, world); if (!this.active) return; }
@@ -93,7 +97,7 @@
     }
 
     _step(h, world) {
-      const cfg = CT.config.ragdoll, g = cfg.gravity, pts = this.pts, o = this.o;
+      const cfg = CT.config.ragdoll, g = cfg.gravity, pts = this.pts, o = this.o, sc = this.sc;
       this.age += h; this.wallCd -= h;
       for (const p of pts) {
         const vx = (p.x - p.px) * cfg.damping, vy = (p.y - p.py) * cfg.damping, vz = (p.z - p.pz) * cfg.damping;
@@ -107,15 +111,16 @@
           const diff = ((d - this.rest[s]) / d) * 0.5 * k;
           A.x += dx * diff; A.y += dy * diff; A.z += dz * diff; B.x -= dx * diff; B.y -= dy * diff; B.z -= dz * diff;
         }
-        for (let i = 0; i < pts.length; i++) if (pts[i].y < RAD[i]) pts[i].y = RAD[i];
+        for (let i = 0; i < pts.length; i++) { const rr = RAD[i] * sc; if (pts[i].y < rr) pts[i].y = rr; }
       }
       // 地面/壁との衝突 (速度反射)
       let grounded = false;
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
-        if (p.y <= RAD[i] + 0.001) {
+        const rad = RAD[i] * sc;
+        if (p.y <= rad + 0.001) {
           const vy = p.y - p.py;
-          p.y = RAD[i];
+          p.y = rad;
           if (vy < -0.05) p.py = p.y + vy * 0.5; else p.py = p.y;
           p.px += (p.x - p.px) * 0.22; p.pz += (p.z - p.pz) * 0.22;
           grounded = true;
@@ -138,7 +143,7 @@
       }
       const pel = pts[2], vy = pel.y - pel.py;
       if (pel.y > this.peak) this.peak = pel.y;
-      if (!this.apexFired && this.peak > 16 && this.prevVy > 0 && vy <= 0) { this.apexFired = true; o.onApex && o.onApex(this, pel.x, pel.y, pel.z); }
+      if (!this.apexFired && this.peak > 10 && this.prevVy > 0 && vy <= 0) { this.apexFired = true; o.onApex && o.onApex(this, pel.x, pel.y, pel.z); }
       this.prevVy = vy;
       if (!grounded) this.air += h;
       if (grounded && !this.landed && this.age > 0.25) {
@@ -147,9 +152,16 @@
       // 静止判定
       let ke = 0; for (const p of pts) ke += Math.abs(p.x - p.px) + Math.abs(p.z - p.pz) + Math.abs(p.y - p.py);
       if (grounded && this.landed && ke / pts.length < 0.012) this.restT += h; else this.restT = 0;
-      if (this.restT > 0.5 || this.age > cfg.maxLife) this.finish();
+      if (this.restT > 0.5 || this.age > cfg.maxLife) this.settle();
     }
 
+    /** 静止: そのまま倒れた姿で残す (シミュレーションだけ止める) */
+    settle() {
+      if (!this.active || this.sleeping) return;
+      this.sleeping = true; this.render();
+      const pel = this.pts[2], cb = this.o.onDone; this.o.onDone = null;
+      cb && cb(this, pel.x, pel.z);
+    }
     finish() {
       if (!this.active) return;
       this.active = false; this.group.visible = false;
@@ -163,7 +175,7 @@
         const [a, b] = STICKS[l.si], A = pts[a], B = pts[b];
         v.set(B.x - A.x, B.y - A.y, B.z - A.z); const len = v.length() || 1e-4; v.multiplyScalar(1 / len);
         l.m.position.set((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2);
-        q.setFromUnitVectors(up, v); l.m.quaternion.copy(q); l.m.scale.y = len;
+        q.setFromUnitVectors(up, v); l.m.quaternion.copy(q); l.m.scale.set(l.r * this.sc, len, l.r * this.sc);
       }
       for (const bl of this.balls) bl.m.position.set(pts[bl.pi].x, pts[bl.pi].y, pts[bl.pi].z);
       const h = pts[0], n = pts[1];
@@ -176,16 +188,20 @@
   }
 
   class RagdollPool {
-    constructor(scene, n) { this.rigs = []; for (let i = 0; i < n; i++) this.rigs.push(new Rig(scene)); this.order = 0; }
+    constructor(scene, n) { this.rigs = []; for (let i = 0; i < n; i++) this.rigs.push(new Rig(scene)); this.focus = { x: 0, z: 0 }; }
+    /** 空きが無ければ、眠っている(倒れて静止中の)もののうち車から一番遠いものを再利用 */
     spawn(o) {
       let r = this.rigs.find((x) => !x.active);
-      if (!r) { // 一番古いものを強制終了して再利用
-        r = this.rigs.reduce((a, b) => (a.age > b.age ? a : b)); r.finish();
+      if (!r) {
+        const f = this.focus; let bd = -1;
+        for (const x of this.rigs) if (x.sleeping) { const d = Math.hypot(x.x - f.x, x.z - f.z); if (d > bd) { bd = d; r = x; } }
+        if (!r) r = this.rigs.reduce((a, b) => (a.age > b.age ? a : b));
+        r.finish();
       }
       r.launch(o); return r;
     }
-    update(dt, world) { for (const r of this.rigs) if (r.active) r.update(dt, world); }
-    clear() { for (const r of this.rigs) { r.active = false; r.group.visible = false; } }
+    update(dt, world) { for (const r of this.rigs) if (r.active && !r.sleeping) r.update(dt, world); }
+    clear() { for (const r of this.rigs) { r.active = false; r.sleeping = false; r.group.visible = false; } }
     get activeCount() { return this.rigs.filter((r) => r.active).length; }
   }
 

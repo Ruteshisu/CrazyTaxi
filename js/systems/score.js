@@ -13,6 +13,7 @@
       bus.on('ped:land', (e) => this.onLand(e));
       bus.on('ped:wall', (e) => this.onWall(e));
       bus.on('prop:hit', (e) => this.onProp(e));
+      bus.on('jump:land', (e) => this.onJump(e));
       bus.on('deliver', (e) => { this.money += e.money + e.tip; });
     }
     reset() {
@@ -37,23 +38,29 @@
       e.mult = mult;
       const pts = (this.cfg.hit + e.speed * this.cfg.speedBonusPerMs) * mult * e.gag.mult;
       this.bestHit = Math.max(this.bestHit, pts);
-      this.add(pts, { kind: 'hit', label: e.gag.label, x: e.x, y: 2.2, z: e.z, big: true, gag: e.gag.id });
+      this.add(pts, { kind: 'hit', label: e.gag.label, x: e.x, y: 2.2, z: e.z, big: true, gag: e.gag.id, level: e.level || 0 });
       CT.bus.emit('combo', { combo: this.combo, mult });
     }
     onLand(e) {
       if (!this.enabled) return;
-      const mult = (e.info && e.info.mult) || 1;
+      const mult = 1 + (((e.info && e.info.mult) || 1) - 1) * 0.4;
       this.bestHeight = Math.max(this.bestHeight, e.peak);
       const pts = (e.peak * this.cfg.heightPoint + e.air * this.cfg.airPoint) * mult;
       if (pts < 60) return;
-      const lbl = e.peak > 32 ? '大気圏突破!' : e.peak > 20 ? 'ナイスなアート!' : e.peak > 9 ? 'まあまあアート' : 'ちょい跳ね';
+      const lbl = e.peak > 22 ? '大気圏突破!' : e.peak > 14 ? 'ナイスなアート!' : e.peak > 7 ? 'まあまあアート' : 'ちょい跳ね';
       this.add(pts, { kind: 'land', label: lbl + ' ' + Math.round(e.peak) + 'm', x: e.x, y: 1.5, z: e.z });
     }
     onWall(e) {
       if (!this.enabled) return;
       this.add(this.cfg.wallBonus * ((e.info && e.info.mult) || 1) * 0.6, { kind: 'wall', label: '壁ドン!', x: e.x, y: e.y + 1, z: e.z });
     }
-    onProp(e) { if (this.enabled) this.add(this.cfg.propHit * this.mult * 0.5, { kind: 'prop', label: e.label || 'ガシャーン', x: e.x, y: 2, z: e.z }); }
+    onProp(e) { if (this.enabled) this.add(this.cfg.propHit * (e.pts || 1) * Math.max(1, this.mult * 0.5), { kind: e.big ? 'car' : 'prop', label: e.label || 'ガシャーン', x: e.x, y: 2, z: e.z }); }
+    onJump(e) {
+      if (!this.enabled) return;
+      const pts = (e.air * this.cfg.jumpAirPoint + e.dist * this.cfg.jumpDistPoint) * Math.max(1, this.mult * 0.5);
+      const lbl = e.dist > 30 ? 'ジャンプ大成功!' : e.dist > 18 ? 'ナイスジャンプ!' : 'ジャンプ!';
+      this.add(pts, { kind: 'jump', label: lbl + ' ' + Math.round(e.dist) + 'm', x: e.x, y: 3, z: e.z });
+    }
 
     update(dt, taxi) {
       if (this.comboTimer > 0) {

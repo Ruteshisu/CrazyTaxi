@@ -82,13 +82,13 @@
     _findPed(taxi, maxD, maxAng, hunting) {
       const g = this.g; let best = null, bs = 1e9;
       for (const p of g.peds.list) {
-        if (p.state === 'rag') continue;
+        if (p.state === 'rag' || p.state === 'down') continue;
         const dx = p.x - taxi.x, dz = p.z - taxi.z, d = Math.hypot(dx, dz);
         if (d > maxD || d < 3) continue;
         const ang = Math.abs(U.angleDiff(Math.atan2(dx, dz), taxi.h));
         if (ang > maxAng) continue;
         if (!g.world.segmentClear(taxi.x, taxi.z, p.x, p.z, 1.4)) continue;
-        const s = d + ang * 25 - (p.state === 'dizzy' ? 15 : 0);
+        const s = d + ang * 25;
         if (s < bs) { bs = s; best = p; }
       }
       return best;
@@ -96,7 +96,7 @@
     _wander(taxi) {
       // 通行人が多い方向(重心)へ。いなければ前方
       const g = this.g; let sx = 0, sz = 0, n = 0;
-      for (const p of g.peds.list) { if (p.state === 'rag') continue; const d = Math.hypot(p.x - taxi.x, p.z - taxi.z); if (d < 160 && d > 20) { sx += p.x; sz += p.z; n++; } }
+      for (const p of g.peds.list) { if (p.state === 'rag' || p.state === 'down') continue; const d = Math.hypot(p.x - taxi.x, p.z - taxi.z); if (d < 160 && d > 20) { sx += p.x; sz += p.z; n++; } }
       if (n) return { x: sx / n, z: sz / n, stop: false, far: true };
       return { x: taxi.x + taxi.fx * 60, z: taxi.z + taxi.fz * 60, stop: false };
     }

@@ -1,5 +1,6 @@
-/* 通行人: ブロック周囲のレール(歩道上 or 車道際)を歩き、時々横断。
-   車が迫ると 逃げる/固まる。はねられるとラグドール化 → 着地後ふらふら → 復帰 */
+/* 通行人: ブロック周囲のレール(歩道上 or 車道際)を3〜7人の集団で歩き、時々横断。
+   車が迫ると 逃げる/固まる。はねられるとラグドール化 → そのまま倒れて残る(復活しない)。
+   倒した人の分は、しばらくして車の前方の別の場所に新しい通行人が補充される */
 (function () {
   'use strict';
   const CT = (window.CT = window.CT || {});
@@ -18,16 +19,48 @@
 
     _make() {
       const colors = { shirt: U.pick(SHIRTS), pants: U.pick(PANTS), hair: U.pick(HAIR), skin: U.pick(SKIN) };
-      const h = CT.Models.human(Object.assign({ scale: U.rand(0.92, 1.1) }, colors));
-      const stars = CT.Models.dizzyStars(); stars.position.y = 2.1; stars.visible = false; h.group.add(stars);
-      const shadow = CT.Models.blobShadow(1.4); h.group.add(shadow);
+      const sc = U.rand(0.92, 1.1) * CT.config.ped.scale;
+      const h = CT.Models.human(Object.assign({ scale: sc }, colors));
+      const stars = CT.Models.dizzyStars(); stars.position.y = 2.1 * sc; stars.visible = false; h.group.add(stars);
+      const shadow = CT.Models.blobShadow(1.4 * CT.config.ped.scale); h.group.add(shadow);
       this.scene.add(h.group);
-      return { h, stars, colors, state: 'walk', phase: Math.random() * 6, t: 0, x: 0, z: 0, yaw: 0, speed: 1.8, bi: 0, bj: 0, c: 0, dir: 1, inset: 2.2, tx: 0, tz: 0, freezer: Math.random() < CT.config.ped.freezeChance, rig: null, hitCount: 0 };
+      return { sc, h, stars, colors, state: 'walk', phase: Math.random() * 6, t: 0, x: 0, z: 0, yaw: 0, speed: 1.8, bi: 0, bj: 0, c: 0, dir: 1, inset: 2.2, tx: 0, tz: 0, freezer: Math.random() < CT.config.ped.freezeChance, rig: null, hitCount: 0 };
     }
 
     reset() {
       this.pool.clear();
-      for (const p of this.list) { p.h.group.visible = true; this._place(p); }
+      const gs = CT.config.ped.groupSize;
+      let i = 0;
+      while (i < this.list.length) {
+        const n = Math.min(this.list.length - i, U.randInt(gs[0], gs[1]));
+        this._placeGroup(this.list.slice(i, i + n)); i += n;
+      }
+    }
+    /** 同じ辺の上に並べた人だかり。全員同じ向きに歩く */
+    _placeGroup(members) {
+      const N = this.world.N, inset = Math.random() < 0.5 ? 2.2 : -1.3, dir = Math.random() < 0.5 ? 1 : -1;
+      const bi = U.randInt(0, N - 1), bj = U.randInt(0, N - 1), side = U.randInt(0, 3), f0 = U.rand(0.06, 0.5);
+      members.forEach((p, k) => {
+        p.bi = bi; p.bj = bj; p.dir = dir; p.inset = inset + U.rand(-0.5, 0.5);
+        const f = Math.min(0.96, f0 + k * 0.058 + U.rand(-0.01, 0.01));
+        const q = this.world.perimeterPoint(bi, bj, side + f, p.inset);
+        p.x = q.x; p.z = q.z; p.c = dir > 0 ? (side + 1) % 4 : side; this._setTarget(p);
+        p.state = 'walk'; p.speed = U.rand(...CT.config.ped.walkSpeed) * (k ? 1 : 1) ; p.t = 0; p.h.group.visible = true; p.stars.visible = false; this._face(p);
+      });
+    }
+    /** 倒された後の補充: 車の前方〜周囲の遠めのレールに新しい通行人を置く */
+    _respawnNear(p, taxi) {
+      let best = null, bs = 1e9;
+      for (let n = 0; n < 14; n++) {
+        this._place(p);
+        const dx = p.x - taxi.x, dz = p.z - taxi.z, d = Math.hypot(dx, dz);
+        if (d < 45) continue;
+        const front = (dx * taxi.fx + dz * taxi.fz) / (d || 1);
+        const sc = Math.abs(d - 85) - front * 40;
+        if (sc < bs) { bs = sc; best = { x: p.x, z: p.z, bi: p.bi, bj: p.bj, c: p.c, dir: p.dir, inset: p.inset }; }
+      }
+      if (best) { Object.assign(p, best); this._setTarget(p); }
+      p.state = 'walk'; p.t = 0; p.h.group.visible = true; p.stars.visible = false; p.freezer = Math.random() < CT.config.ped.freezeChance; this._face(p);
     }
     /** ランダムなレール上に配置 */
     _place(p, nearX, nearZ) {
@@ -84,6 +117,7 @@
       const tfx = taxi.fx, tfz = taxi.fz, tsp = taxi.totalSpeed;
       for (const p of this.list) {
         if (p.state === 'rag') continue;
+        if (p.state === 'down') { p.t += dt; if (p.t > cfg.respawnTime) this._respawnNear(p, taxi); continue; }
         p.t += dt; p.phase += dt * (p.state === 'panic' ? 14 : 3.6 + p.speed * 1.7);
         const dx = p.x - taxi.x, dz = p.z - taxi.z, d2 = dx * dx + dz * dz;
         // 逃げる/固まる判定
@@ -105,11 +139,6 @@
         }
         if (p.state === 'freeze' && (p.t > 3 || d2 > (cfg.panicDist * 1.3) ** 2)) { p.state = 'walk'; p.t = 0; }
         if (p.state === 'panic' && p.t > 3.2) { p.state = 'walk'; p.t = 0; }
-        if (p.state === 'dizzy') {
-          p.stars.userData && 0;
-          p.stars.userData.update ? 0 : 0;
-          if (p.t > cfg.dizzyTime) { p.state = 'walk'; p.stars.visible = false; this._rejoin(p); }
-        }
         // 移動
         if (p.state === 'walk' || p.state === 'cross' || p.state === 'panic') {
           const sp = p.state === 'panic' ? cfg.fleeSpeed : p.speed;
@@ -121,22 +150,11 @@
         const g = p.h.group;
         g.position.set(p.x, 0.3 * (p.inset > 0 ? 1 : 0), p.z);
         g.rotation.y = p.yaw;
-        const mode = p.state === 'panic' ? 'panic' : p.state === 'freeze' ? 'freeze' : p.state === 'dizzy' ? 'dizzy' : 'walk';
+        const mode = p.state === 'panic' ? 'panic' : p.state === 'freeze' ? 'freeze' : 'walk';
         CT.Models.animHuman(p.h, mode, p.phase, p.t + p.phase);
-        if (p.state === 'dizzy') { p.stars.userData.update(p.t); }
       }
       void t0;
       this._checkHits(taxi, game);
-    }
-
-    /** ふらふら後、最寄りのレールに戻る */
-    _rejoin(p) {
-      const W = this.world, N = W.N;
-      p.bi = U.clamp(Math.floor((p.x + W.half) / W.P), 0, N - 1);
-      p.bj = U.clamp(Math.floor((p.z + W.half) / W.P), 0, N - 1);
-      let best = 0, bd = 1e9;
-      for (let c = 0; c < 4; c++) { const q = W.perimeterPoint(p.bi, p.bj, c, p.inset); const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = c; } }
-      p.c = best; p.state = 'walk'; this._setTarget(p);
     }
 
     _checkHits(taxi, game) {
@@ -145,32 +163,29 @@
       for (const p of this.list) {
         if (p.state === 'rag') continue;
         const L = taxi.toLocal(p.x, p.z);
-        if (Math.abs(L.ll) < cfg.hitHalfWidth && L.lf > -cfg.hitBack && L.lf < cfg.hitFront && taxi.y < 1.2) this.hit(p, taxi, sp);
+        if (Math.abs(L.ll) < cfg.hitHalfWidth && L.lf > -cfg.hitBack && L.lf < cfg.hitFront && taxi.y < 1.2) this.hit(p, taxi, sp, game);
       }
     }
 
-    hit(p, taxi, sp) {
+    hit(p, taxi, sp, game) {
       const fx = taxi.vx / (sp || 1), fz = taxi.vz / (sp || 1);
       const ctx = { speed: sp, fx, fz, lx: -fz, lz: fx };
-      const gag = CT.Gags.pick(sp, ctx);
+      const level = CT.Gags.levelFor(((game && game.score && game.score.enabled) ? game.score.combo : 0) + 1);
+      const gag = CT.Gags.pick(sp, ctx, level);
       p.state = 'rag'; p.h.group.visible = false; p.stars.visible = false; p.hitCount++;
-      const info = { ped: p, x: p.x, z: p.z, speed: sp, gag, fx, fz, y: 1 };
+      const info = { ped: p, x: p.x, z: p.z, speed: sp, gag, fx, fz, y: 1, level };
       const o = {
-        x: p.x, z: p.z, y0: p.inset > 0 ? 0.3 : 0, yaw: p.yaw + Math.random() * 6, vel: gag.vel, spin: gag.spin, colors: p.colors,
+        x: p.x, z: p.z, y0: p.inset > 0 ? 0.3 : 0, yaw: p.yaw + Math.random() * 6, vel: gag.vel, spin: gag.spin, colors: p.colors, scale: p.sc,
         onApex: (rig, x, y, z) => CT.bus.emit('ped:apex', { ped: p, x, y, z, info }),
         onLand: (rig, x, z) => CT.bus.emit('ped:land', { ped: p, x, z, peak: rig.peak, air: rig.air, info, rig }),
         onWall: (rig, x, y, z) => CT.bus.emit('ped:wall', { ped: p, x, y, z, info }),
-        onDone: (rig, x, z) => {
-          const W = this.world;
-          p.x = U.clamp(x, -W.half - 8, W.half + 8); p.z = U.clamp(z, -W.half - 8, W.half + 8);
-          p.yaw = Math.random() * 6.28; p.state = 'dizzy'; p.t = 0; p.rig = null; p.h.group.visible = true; p.stars.visible = true;
-        },
+        onDone: () => { p.state = 'down'; p.t = 0; p.rig = null; },
       };
       p.rig = this.pool.spawn(o);
       info.rig = p.rig;
       // 車の軽い反動 (ポヨン)
-      taxi.bump(2.2 + Math.min(3, sp * 0.08));
-      taxi.vx *= 0.975; taxi.vz *= 0.975;
+      taxi.bump(1.2 + Math.min(2, sp * 0.05));
+      taxi.vx *= 0.985; taxi.vz *= 0.985;
       CT.bus.emit('ped:hit', info);
     }
   }

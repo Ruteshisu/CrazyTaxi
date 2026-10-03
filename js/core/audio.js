@@ -129,61 +129,93 @@
       this._tone('triangle', 900 + (n || 0) * 80, 1600 + (n || 0) * 80, 0.1, 0.18);
     },
 
-    /* ---------- BGM (簡易シーケンサ) ---------- */
+    /* ---------- BGM: 疾走感のあるパンクロック調 (オフスプリング風の方向性。曲そのものではなく完全オリジナル) ----------
+       188BPM / Aマイナー系の循環コード(Am F C G, 各2小節) / D-beat風ドラム / 歪んだパワーコードの8分刻み / 後半はリフ(掛け声メロディ)が入る。16小節ループ */
     startBgm() {
       if (!this.ready || this.bgmOn) return;
-      this.bgmOn = true;
+      this.bgmOn = true; this._buildBgmChain();
       this._step = 0; this._next = this.ctx.currentTime + 0.1;
       this._timer = setInterval(() => this._sched(), 40);
     },
     stopBgm() { this.bgmOn = false; clearInterval(this._timer); },
+    _buildBgmChain() {
+      if (this._guitarBus) return;
+      const c = this.ctx;
+      const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.12;
+      this.bgmBus.disconnect(); this.bgmBus.connect(comp); comp.connect(this.master); this.bgmBus.gain.value = 0.3;
+      const shaper = c.createWaveShaper(), n = 1024, curve = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(x * 5) * 0.9; }
+      shaper.curve = curve; shaper.oversample = '2x';
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
+      const g = c.createGain(); g.gain.value = 0.34;
+      hp.connect(shaper); shaper.connect(lp); lp.connect(g); g.connect(this.bgmBus);
+      this._guitarBus = hp;
+    },
     _sched() {
-      const c = this.ctx, spb = 60 / 150 / 4; // 150BPM 16分
+      const c = this.ctx, spb = 60 / 188 / 4; // 188BPM の16分音符
       while (this._next < c.currentTime + 0.15) {
         this._playStep(this._step, this._next);
         this._next += spb; this._step++;
       }
     },
-    _bgmTone(type, f, t, dur, vol) {
+    _bgmTone(type, f, t, dur, vol, dest) {
       const c = this.ctx, o = c.createOscillator(); o.type = type; o.frequency.value = f;
-      const g = c.createGain(); this._env(g, t, 0.005, dur, vol);
-      o.connect(g); g.connect(this.bgmBus); o.start(t); o.stop(t + dur + 0.05);
+      const g = c.createGain(); this._env(g, t, 0.004, dur, vol);
+      o.connect(g); g.connect(dest || this.bgmBus); o.start(t); o.stop(t + dur + 0.05);
+    },
+    _noiseHit(t, dur, vol, freq, type) {
+      const c = this.ctx, sN = c.createBufferSource(); sN.buffer = this._noise;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+      const g = c.createGain(); this._env(g, t, 0.002, dur, vol);
+      sN.connect(f); f.connect(g); g.connect(this.bgmBus); sN.start(t, Math.random()); sN.stop(t + dur + 0.1);
     },
     _playStep(s, t) {
-      const c = this.ctx, bar = Math.floor(s / 16) % 4, st = s % 16;
-      const roots = [36, 33, 41, 43]; // C A F G (ベース)
-      const root = roots[bar];
-      // キック
-      if (st % 4 === 0) {
-        const o = c.createOscillator(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-        const g = c.createGain(); this._env(g, t, 0.003, 0.14, 1.0); o.connect(g); g.connect(this.bgmBus); o.start(t); o.stop(t + 0.2);
+      const c = this.ctx, bar = Math.floor(s / 16) % 16, st = s % 16, chordIdx = Math.floor(bar / 2) % 4;
+      const roots = [45, 41, 48, 43];            // A F C G (ギター低音域)
+      const root = roots[chordIdx], hook = bar >= 8; // 後半8小節はリフ入り
+      // ---- ドラム ----
+      const kick = [0, 2, 8, 10].indexOf(st) >= 0 || (bar % 4 === 3 && st === 14);
+      if (kick) {
+        const o = c.createOscillator(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.1);
+        const g = c.createGain(); this._env(g, t, 0.002, 0.13, 1.0); o.connect(g); g.connect(this.bgmBus); o.start(t); o.stop(t + 0.2);
       }
-      // ハット/スネア
-      if (st % 2 === 1 || st % 4 === 2) {
-        const sN = c.createBufferSource(); sN.buffer = this._noise;
-        const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = st % 8 === 4 ? 1500 : 6000;
-        const g = c.createGain(); this._env(g, t, 0.002, st % 8 === 4 ? 0.12 : 0.04, st % 8 === 4 ? 0.7 : 0.25);
-        sN.connect(f); f.connect(g); g.connect(this.bgmBus); sN.start(t, Math.random()); sN.stop(t + 0.15);
+      const fill = bar % 4 === 3 && st >= 12;
+      if (st === 4 || st === 12 || (fill && st > 12)) { // スネア
+        this._noiseHit(t, 0.13, 0.75, 1800, 'highpass');
+        const o = c.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+        const g = c.createGain(); this._env(g, t, 0.002, 0.1, 0.5); o.connect(g); g.connect(this.bgmBus); o.start(t); o.stop(t + 0.15);
       }
-      // ベース (8分でオクターブ跳ね)
-      if (st % 2 === 0) this._bgmTone('square', mtof(root + (st % 4 === 2 ? 12 : 0)), t, 0.12, 0.5);
-      // リード (ペンタトニック)
-      const scale = [0, 2, 4, 7, 9, 12, 14, 16];
-      const pat = [0, 2, 4, 2, 5, 4, 2, 0, 3, 4, 5, 7, 5, 4, 2, 4];
-      if (st % 2 === 0 || st % 4 === 3) {
-        const n = 60 + root - 36 + scale[(pat[st] + bar) % scale.length];
-        this._bgmTone('square', mtof(n), t, 0.13, 0.22);
+      if (st % 2 === 0 && !fill) this._noiseHit(t, st % 8 === 6 ? 0.1 : 0.035, st % 8 === 6 ? 0.28 : 0.2, 7000, 'highpass'); // ハイハット(8分)
+      if (st === 0 && bar % 4 === 0) this._noiseHit(t, 0.9, 0.35, 5000, 'highpass');   // クラッシュ
+      // ---- ベース (8分でルート。1オクターブ下) ----
+      if (st % 2 === 0) this._bgmTone('sawtooth', mtof(root - 12), t, st % 8 === 0 ? 0.2 : 0.1, 0.34);
+      // ---- ギター: パワーコード(ルート+5度+オクターブ)。拍頭は伸ばし、他はミュートで刻む ----
+      if (st % 2 === 0 || (hook && st === 7)) {
+        const sustain = st === 0 || (hook && (st === 6 || st === 10));
+        const dur = sustain ? 0.34 : 0.075;
+        for (const iv of [0, 7, 12]) this._bgmTone('sawtooth', mtof(root + 12 + iv) * (1 + (iv === 7 ? 0.003 : 0)), t, dur, 0.5, this._guitarBus);
+      }
+      // ---- リフ(掛け声メロディ): 後半のみ ----
+      if (hook) {
+        const mel = { 0: 12, 3: 12, 6: 15, 8: 17, 10: 15, 12: 12, 14: 10 }, d = mel[st];
+        if (d !== undefined) {
+          const n = root + 12 + d + (chordIdx === 2 ? 0 : 0);
+          this._bgmTone('square', mtof(n + 12), t, 0.14, 0.2);
+          this._bgmTone('square', mtof(n + 12) * 1.005, t, 0.14, 0.12);
+        }
       }
     },
 
     /** バスのイベントを購読して自動で鳴らす */
     bindEvents() {
       const bus = CT.bus;
-      bus.on('ped:hit', (e) => { this.boing(Math.min(1, e.speed / 35)); });
+      bus.on('ped:hit', (e) => { this.boing(Math.min(1, e.speed / 35) * 0.6 + (e.level || 0) * 0.13); if ((e.level || 0) >= 2) this._noiseBurst(0.5, 0.25, 6000, 'highpass'); });
       bus.on('ped:apex', () => this.star());
       bus.on('ped:land', () => this.thud());
       bus.on('ped:wall', () => this.clang());
-      bus.on('prop:hit', () => this.clang());
+      bus.on('prop:hit', (e) => { if (e.kind === 'car') { this.crash(0.8); this._tone('sine', 200, 60, 0.3, 0.4); } else this.clang(); });
+      bus.on('jump:land', () => { this.thud(); this.pickup(); });
       bus.on('crash', (e) => this.crash(e.power));
       bus.on('pickup', () => this.pickup());
       bus.on('deliver', () => { this.cash(); });

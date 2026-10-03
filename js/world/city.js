@@ -18,6 +18,7 @@
       this.P = this.B + this.R;
       this.half = (this.N * this.P) / 2;      // 道路中心線で囲まれた領域の半幅
       this.boxes = []; this.circles = []; this.blocks = []; this.knockSpots = [];
+      this.ramps = []; this.trees = []; this.lamps = []; this._mtx = new THREE.Matrix4();
       this.rnd = U.mulberry32(c.seed);
       this.group = new THREE.Group(); scene.add(this.group);
       this.winTex = [];
@@ -73,6 +74,65 @@
         if (distSegPt(ax, az, bx, bz, c.x, c.z) < c.r + pad) return false;
       }
       return true;
+    }
+
+    /* ---------- ジャンプ台 (山型) ---------- */
+    _addRamp(x, z, ang) {
+      const c = CT.config.ramps, m = CT.Models.ramp(c.length, c.width, c.height);
+      m.position.set(x, 0.02, z); m.rotation.y = ang; this.group.add(m);
+      this.ramps.push({ x, z, ux: Math.sin(ang), uz: Math.cos(ang), half: c.length / 2, hw: c.width / 2, h: c.height, ang });
+    }
+    _buildRamps() {
+      const c = CT.config.ramps, N = this.N, used = new Set();
+      // 固定: スタート地点の正面 (デモ/本番の最初のジャンプ)
+      this._addRamp((this.lineX(1) + this.lineX(2)) / 2, this.lineZ(3), Math.PI / 2); used.add('h,3,1');
+      let guard = 0;
+      while (this.ramps.length < c.count && guard++ < 400) {
+        const horiz = Math.random() < 0.5, k = U.randInt(0, N), m = U.randInt(0, N - 1), key = (horiz ? 'h,' : 'v,') + k + ',' + m;
+        if (used.has(key)) continue; used.add(key);
+        const mid = (this.lineX(m) + this.lineX(m + 1)) / 2, line = this.lineX(k);
+        if (horiz) this._addRamp(mid, line, Math.PI / 2); else this._addRamp(line, mid, 0);
+      }
+    }
+    /** 地面の高さ (ジャンプ台の上なら >0) */
+    floorAt(x, z) {
+      let f = 0;
+      for (const r of this.ramps) {
+        const dx = x - r.x, dz = z - r.z;
+        if (dx > 12 || dx < -12 || dz > 12 || dz < -12) continue;
+        const al = dx * r.ux + dz * r.uz, lat = Math.abs(dx * r.uz - dz * r.ux);
+        if (Math.abs(al) >= r.half || lat >= r.hw) continue;
+        const v = r.h * (1 - Math.abs(al) / r.half) * Math.min(1, (r.hw - lat) / 1.2);
+        if (v > f) f = v;
+      }
+      return f;
+    }
+    /** 床が上下する速度 (= 斜面の勾配 × 進行速度) */
+    floorSlopeSpeed(x, z, vx, vz) {
+      for (const r of this.ramps) {
+        const dx = x - r.x, dz = z - r.z;
+        if (dx > 12 || dx < -12 || dz > 12 || dz < -12) continue;
+        const al = dx * r.ux + dz * r.uz, lat = Math.abs(dx * r.uz - dz * r.ux);
+        if (Math.abs(al) >= r.half || lat >= r.hw) continue;
+        const sl = (-r.h / r.half) * Math.sign(al);
+        return sl * (vx * r.ux + vz * r.uz) * Math.min(1, (r.hw - lat) / 1.2);
+      }
+      return 0;
+    }
+    /** 木/街灯の「吹っ飛ばされ中は非表示」切り替え */
+    setTreeVisible(i, on) {
+      const t = this.trees[i], m = this._mtx;
+      if (on) { this.treeTrunk.setMatrixAt(i, t.mTrunk); this.treeCrown.setMatrixAt(i, t.mCrown); }
+      else { m.makeScale(0, 0, 0); this.treeTrunk.setMatrixAt(i, m); this.treeCrown.setMatrixAt(i, m); }
+      this.treeTrunk.instanceMatrix.needsUpdate = this.treeCrown.instanceMatrix.needsUpdate = true;
+      t.alive = on;
+    }
+    setLampVisible(i, on) {
+      const l = this.lamps[i], m = this._mtx;
+      if (on) { this.lampPole.setMatrixAt(i, l.mPole); this.lampHead.setMatrixAt(i, l.mHead); }
+      else { m.makeScale(0, 0, 0); this.lampPole.setMatrixAt(i, m); this.lampHead.setMatrixAt(i, m); }
+      this.lampPole.instanceMatrix.needsUpdate = this.lampHead.instanceMatrix.needsUpdate = true;
+      l.alive = on;
     }
 
     /* ---------- マテリアル/テクスチャ ---------- */
@@ -193,6 +253,7 @@
       }
       this._instancedLamps(lampPos);
       this._instancedTrees(treePos);
+      this._buildRamps();
       this._border();
       this._sky();
     }
@@ -256,27 +317,31 @@
     _instancedLamps(pos) {
       const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 6.4, 6), CT.Models.mat(0x555a64), pos.length);
       const head = new THREE.InstancedMesh(new THREE.BoxGeometry(1.3, 0.2, 0.5), CT.Models.basic(0xfff3b0), pos.length);
-      const m = new THREE.Matrix4();
       pos.forEach((p, i) => {
-        m.makeTranslation(p[0], 3.5, p[1]); pole.setMatrixAt(i, m);
-        m.makeTranslation(p[0] + (p[0] > 0 ? -0.5 : 0.5), 6.7, p[1]); head.setMatrixAt(i, m);
+        const mp = new THREE.Matrix4().makeTranslation(p[0], 3.5, p[1]);
+        const mh = new THREE.Matrix4().makeTranslation(p[0] + (p[0] > 0 ? -0.5 : 0.5), 6.7, p[1]);
+        pole.setMatrixAt(i, mp); head.setMatrixAt(i, mh);
+        this.lamps.push({ x: p[0], z: p[1], mPole: mp, mHead: mh, alive: true, t: 0 });
       });
+      this.lampPole = pole; this.lampHead = head;
       this.group.add(pole, head);
     }
     _instancedTrees(pos) {
       const n = pos.length;
       const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 2.2, 6), CT.Models.mat(0x7a5230), n);
       const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.1, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), n);
-      const m = new THREE.Matrix4(), col = new THREE.Color(), r = this.rnd;
+      const col = new THREE.Color(), r = this.rnd;
       const greens = [0x4fae4a, 0x66c255, 0x3d9a58, 0x8acb4f];
       pos.forEach((p, i) => {
-        m.makeTranslation(p[0], 1.4, p[1]); trunk.setMatrixAt(i, m);
+        const mt = new THREE.Matrix4().makeTranslation(p[0], 1.4, p[1]); trunk.setMatrixAt(i, mt);
         const s = 0.8 + r() * 0.6;
-        m.makeScale(s, s, s); m.setPosition(p[0], 3.9 + s, p[1]); crown.setMatrixAt(i, m);
-        crown.setColorAt(i, col.setHex(greens[Math.floor(r() * greens.length)]));
-        this.circles.push({ x: p[0], z: p[1], r: 0.5, h: 6 });
+        const mc = new THREE.Matrix4().makeScale(s, s, s); mc.setPosition(p[0], 3.9 + s, p[1]); crown.setMatrixAt(i, mc);
+        const c = greens[Math.floor(r() * greens.length)];
+        crown.setColorAt(i, col.setHex(c));
+        this.trees.push({ x: p[0], z: p[1], s, color: c, mTrunk: mt, mCrown: mc, alive: true, t: 0 });
       });
       crown.instanceColor.needsUpdate = true;
+      this.treeTrunk = trunk; this.treeCrown = crown;
       this.group.add(trunk, crown);
     }
 

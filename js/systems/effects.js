@@ -96,8 +96,9 @@
       this.trailT = 0;
       const bus = CT.bus;
       bus.on('ped:hit', (e) => this.onHit(e));
-      bus.on('ped:apex', (e) => this.starBurst(e.x, e.y, e.z, 60, 14));
-      bus.on('ped:land', (e) => this.dust(e.x, 0.3, e.z, 14, 5));
+      bus.on('ped:apex', (e) => this.starBurst(e.x, e.y, e.z, 20 + Math.round(e.y), 8 + e.y * 0.3));
+      bus.on('ped:land', (e) => this.dust(e.x, 0.3, e.z, 5 + Math.min(10, Math.round(e.peak)), 4));
+      bus.on('jump:land', (e) => { this.dust(e.x, 0.5, e.z, 22, 8); this.starBurst(e.x, 2, e.z, 16, 8); });
       bus.on('ped:wall', (e) => this.starBurst(e.x, e.y, e.z, 12, 5));
       bus.on('prop:hit', (e) => this.starBurst(e.x, 1, e.z, 10, 5));
       bus.on('crash', (e) => this.sparks(e.x, 1, e.z, 6 + Math.round(e.power * 18)));
@@ -124,9 +125,11 @@
         this.stars.emit({ x, y, z, vx: Math.cos(a) * 9, vy: U.rand(1, 7), vz: Math.sin(a) * 9, life: U.rand(0.25, 0.6), s0: 1.8, s1: 0.2, g: 20, drag: 1, r: 1, g2: 0.8, b: 0.3 });
       }
     }
+    /** ヒット演出: 1発目はごく控えめ、連続ヒット(level 0..3)で星/砂煙が段階的に増える */
     onHit(e) {
-      this.starBurst(e.x, 1.3, e.z, 26, 13);
-      this.dust(e.x, 0.6, e.z, 8, 4);
+      const lv = e.level || 0;
+      this.starBurst(e.x, 1.3, e.z, [6, 14, 26, 44][lv], [4, 7, 11, 16][lv]);
+      this.dust(e.x, 0.6, e.z, [3, 6, 10, 16][lv], 3 + lv);
     }
     /** 毎フレーム */
     update(dt, taxi, pool, active) {

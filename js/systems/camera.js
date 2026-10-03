@@ -6,42 +6,49 @@
 
   class ChaseCamera {
     constructor(camera, world) {
-      this.cam = camera; this.world = world;
-      this.angle = 0; this.fov = 62; this.shakeT = 0; this.shakeA = 0; this.punch = 0;
+      this.cam = camera; world && 0; this.world = world;
+      this.angle = 0; this.fov = CT.config.camera.fov; this.shakeT = 0; this.shakeA = 0; this.punch = 0; this.pull = 0; this.pullT = 0;
       this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.inited = false;
-      this.orbit = 0; // 演出用の追加回転
-      CT.bus.on('ped:hit', (e) => this.shake(0.28 + Math.min(0.5, e.speed / 60), 0.35 + e.speed / 90));
+      // 演出レベル(連続ヒット)が高いほど揺れ・ズームパンチ・引きが大きい。1発目はごく控えめ
+      CT.bus.on('ped:hit', (e) => {
+        const lv = e.level || 0;
+        this.shake(0.12 + lv * 0.1, 0.06 + lv * 0.18);
+        if (lv >= 2) { this.pull = Math.max(this.pull, 1.5 + (lv - 2) * 1.5); this.pullT = 1.6; }
+      });
       CT.bus.on('crash', (e) => this.shake(0.3 * e.power + 0.1, 0.5 * e.power));
+      CT.bus.on('jump:land', () => this.shake(0.25, 0.35));
     }
     shake(dur, amp) { this.shakeT = Math.max(this.shakeT, dur); this.shakeA = Math.max(this.shakeA, amp); this.punch = Math.max(this.punch, Math.min(1, amp)); }
-    snap(taxi) { this.angle = taxi.h; this.inited = false; }
+    snap(taxi) { this.angle = taxi.h; this.inited = false; this.pull = 0; }
 
     update(dt, taxi) {
-      const speed = taxi.totalSpeed, h = taxi.h;
-      // 見る方向: 車体向きと速度方向を混ぜる (ドリフト中は進行方向寄り)
+      const C = CT.config.camera, speed = taxi.totalSpeed, h = taxi.h;
+      // 見る方向: 基本は車体後方。ドリフト中は進行方向寄り。きりもみ中は速度方向 (回転に釣られない)
       let target = h;
-      if (speed > 6) { const va = Math.atan2(taxi.vx, taxi.vz); target = h + U.angleDiff(va, h) * 0.45; if (taxi.speed < -1) target = h + Math.PI; }
-      this.angle += U.angleDiff(target, this.angle) * (1 - Math.exp(-4.2 * dt));
-      const dist = 10.5 + speed * 0.09 + (taxi.boosting ? 2.5 : 0), height = 4.4 + speed * 0.045;
+      if (taxi.spinning) target = Math.atan2(taxi.vx, taxi.vz);
+      else if (speed > 6) { const va = Math.atan2(taxi.vx, taxi.vz); target = h + U.angleDiff(va, h) * 0.4; if (taxi.speed < -1) target = h + Math.PI; }
+      this.angle += U.angleDiff(target, this.angle) * (1 - Math.exp(-(taxi.spinning ? 2.2 : 5) * dt));
+      if (this.pullT > 0) this.pullT -= dt; else this.pull = U.damp(this.pull, 0, 1.5, dt);
+      const dist = C.dist + speed * 0.045 + (taxi.boosting ? 1.4 : 0) + this.pull + (taxi.air ? 1.5 : 0);
+      const height = C.height + speed * 0.02 + this.pull * 0.35;
       const dx = -Math.sin(this.angle), dz = -Math.cos(this.angle);
-      let cx = taxi.x + dx * dist, cz = taxi.z + dz * dist, cy = height + taxi.y * 0.5;
+      let cx = taxi.x + dx * dist, cz = taxi.z + dz * dist, cy = height + taxi.y * 0.75;
       // 建物めり込み回避: 注視点→カメラの線分が建物に当たったら手前に詰める
       const tx = taxi.x, tz = taxi.z;
       let k = 1;
       for (const b of this.world.boxes) {
         if (b.h < cy + 1) continue;
         if (segBox(tx, tz, cx, cz, b.minx - 0.8, b.maxx + 0.8, b.minz - 0.8, b.maxz + 0.8)) {
-          // 当たる最小tを求める (ざっくり二分)
           let lo = 0, hi = 1; for (let i = 0; i < 8; i++) { const m = (lo + hi) / 2; if (segBox(tx, tz, tx + (cx - tx) * m, tz + (cz - tz) * m, b.minx - 0.8, b.maxx + 0.8, b.minz - 0.8, b.maxz + 0.8)) hi = m; else lo = m; }
           k = Math.min(k, lo);
         }
       }
-      if (k < 1) { k = Math.max(0.25, k); cx = tx + (cx - tx) * k; cz = tz + (cz - tz) * k; cy = Math.max(2.4, cy * (0.5 + 0.5 * k)); }
+      if (k < 1) { k = Math.max(0.3, k); cx = tx + (cx - tx) * k; cz = tz + (cz - tz) * k; cy = Math.max(2.0, cy * (0.6 + 0.4 * k)); }
       if (!this.inited) { this.pos.set(cx, cy, cz); this.inited = true; }
-      this.pos.x = U.damp(this.pos.x, cx, 9, dt); this.pos.y = U.damp(this.pos.y, cy, 6, dt); this.pos.z = U.damp(this.pos.z, cz, 9, dt);
-      this.look.set(taxi.x + Math.sin(this.angle) * 6, 1.6 + taxi.y, taxi.z + Math.cos(this.angle) * 6);
+      this.pos.x = U.damp(this.pos.x, cx, 12, dt); this.pos.y = U.damp(this.pos.y, cy, 7, dt); this.pos.z = U.damp(this.pos.z, cz, 12, dt);
+      this.look.set(taxi.x + Math.sin(this.angle) * C.lookAhead, C.lookHeight + taxi.y * 0.8, taxi.z + Math.cos(this.angle) * C.lookAhead);
       // FOV
-      const fovT = 60 + U.clamp(speed / CT.config.taxi.maxSpeed, 0, 1.5) * 14 + (taxi.boosting ? 8 : 0) + this.punch * 10;
+      const fovT = C.fov + U.clamp(speed / CT.config.taxi.maxSpeed, 0, 1.5) * 12 + (taxi.boosting ? 7 : 0) + this.punch * 8;
       this.fov = U.damp(this.fov, fovT, 5, dt);
       this.punch = U.damp(this.punch, 0, 7, dt);
       this.cam.fov = this.fov; this.cam.updateProjectionMatrix();
@@ -52,7 +59,6 @@
         if (this.shakeT <= 0) this.shakeA = 0;
       }
       this.cam.lookAt(this.look);
-      // 空は常にカメラ中心
       if (this.world.sky) this.world.sky.position.copy(this.cam.position);
     }
   }

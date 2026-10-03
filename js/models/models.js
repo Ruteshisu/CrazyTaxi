@@ -202,6 +202,75 @@
       g.add(M.box(0.62, 0.08, 0.57, M.mat(0xffffff), 0, 1.32, 0));
       return g;
     },
+    /* ================= 一般車 (交通/駐車) ================= */
+    /** kind: 'sedan' | 'van' | 'truck' | 'bus' */
+    car(color, kind) {
+      const THREE = T(), g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+      kind = kind || 'sedan';
+      const B = M.mat(color), glass = M.mat(0x2a3550), dark = M.mat(0x25272d);
+      let L = 4.2, W = 2.0, H = 0.7, topH = 0.6;
+      if (kind === 'sedan') {
+        body.add(M.box(W, H, L, B, 0, 0.62, 0));
+        body.add(M.box(1.7, topH, 2.1, glass, 0, 1.25, -0.2));
+        body.add(M.box(1.8, 0.1, 2.2, B, 0, 1.6, -0.2));
+      } else if (kind === 'van') {
+        L = 4.8; W = 2.1;
+        body.add(M.box(W, 1.5, L, B, 0, 1.05, 0));
+        body.add(M.box(W - 0.1, 0.5, 1.2, glass, 0, 1.45, 1.55));
+      } else if (kind === 'truck') {
+        L = 6.2; W = 2.3;
+        body.add(M.box(W, 1.2, 2.0, B, 0, 1.0, 2.0));
+        body.add(M.box(W - 0.1, 0.5, 0.9, glass, 0, 1.35, 2.5));
+        body.add(M.box(W + 0.1, 2.4, 4.0, M.mat(0xe8e8ee), 0, 1.8, -1.0));
+      } else { // bus
+        L = 9; W = 2.5;
+        body.add(M.box(W, 2.6, L, B, 0, 1.7, 0));
+        body.add(M.box(W + 0.02, 0.9, L - 1.2, glass, 0, 2.15, 0));
+        body.add(M.box(W + 0.04, 0.2, L, M.mat(0xffffff), 0, 3.05, 0));
+      }
+      for (const sx of [-0.65, 0.65]) {
+        body.add(M.box(0.4, 0.2, 0.08, M.basic(0xfff6c0), sx * W / 1.4, 0.8, L / 2 + 0.02));
+        body.add(M.box(0.4, 0.2, 0.08, M.basic(0xff3030), sx * W / 1.4, 0.8, -L / 2 - 0.02));
+      }
+      const wg = new THREE.CylinderGeometry(0.42, 0.42, 0.3, 10);
+      const wz = kind === 'bus' ? [3, -3] : kind === 'truck' ? [2.2, -1.8] : [L * 0.32, -L * 0.32];
+      for (const z of wz) for (const sx of [-1, 1]) {
+        const w = new THREE.Mesh(wg, dark); w.rotation.z = Math.PI / 2; w.position.set(sx * (W / 2 - 0.05), 0.42, z); g.add(w);
+      }
+      const shadow = M.blobShadow(Math.max(L, 5) * 1.25); shadow.scale.set(0.6, 1, 1); g.add(shadow);
+      g.userData.dims = { L, W };
+      return { group: g, body, L, W, kind, shadow };
+    },
+
+    /* ================= ジャンプ台 ================= */
+    /** 山型(左右対称)の踏切台。長さ方向が +z。group.rotation.y = 道路方向の角度。どちら向きからでも飛べる */
+    ramp(len, width, h) {
+      const THREE = T(), g = new THREE.Group();
+      const shape = new THREE.Shape(); shape.moveTo(0, 0); shape.lineTo(len, 0); shape.lineTo(len / 2, h); shape.lineTo(0, 0);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false });
+      geo.translate(-len / 2, 0, -width / 2); geo.rotateY(-Math.PI / 2);
+      g.add(new THREE.Mesh(geo, M.mat(0xff8a00)));
+      const tex = M.canvasTex(64, 128, (c, w, hh) => {
+        c.fillStyle = '#1b1b22'; c.fillRect(0, 0, w, hh); c.strokeStyle = '#ffe14a'; c.lineWidth = 9; c.lineJoin = 'miter';
+        for (let i = 0; i < 3; i++) { const y = 18 + i * 38; c.beginPath(); c.moveTo(8, y + 22); c.lineTo(w / 2, y); c.lineTo(w - 8, y + 22); c.stroke(); }
+      });
+      const half = len / 2, slope = Math.hypot(half, h), ang = Math.atan2(h, half);
+      const dm = new THREE.MeshBasicMaterial({ map: tex });
+      const up = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.9, slope), dm);   // +z向きに上る面
+      up.rotation.set(-Math.PI / 2 - ang, 0, Math.PI); up.position.set(0, h / 2 + 0.06, -len / 4);
+      const dn = new THREE.Mesh(new THREE.PlaneGeometry(width * 0.9, slope), dm);   // -z向きに上る面
+      dn.rotation.set(-Math.PI / 2 + ang, 0, 0); dn.position.set(0, h / 2 + 0.06, len / 4);
+      g.add(up, dn);
+      return g;
+    },
+
+    /** 客の頭上で揺れる大きな矢印 (▼) */
+    arrowMarker(color) {
+      const THREE = T();
+      const m = new THREE.Mesh(new THREE.ConeGeometry(1.3, 2.8, 4), new THREE.MeshBasicMaterial({ color, fog: false }));
+      m.rotation.x = Math.PI; return m;
+    },
+
     /** 吹き出し/ポップ用スプライト素材 (テキスト) */
     sprite(tex, w, h) {
       const THREE = T();

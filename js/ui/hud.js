@@ -32,16 +32,17 @@
         this.pop3d('+' + e.timeBonus + 's', e.x, 4, e.z, 'pop-time');
         this.say('deliver');
       });
-      bus.on('ped:hit', () => this.say('hit', 0.55));
+      bus.on('ped:hit', (e) => { this.say('hit', 0.55); if ((e.level || 0) >= 3) this.flash(); });
       bus.on('crash', (e) => { if (e.power > 0.35) this.say('crash', 0.6); });
       bus.on('ped:apex', (e) => this.pop3d('キラーン☆', e.x, e.y, e.z, 'pop-star'));
     },
+    flash() { const f = document.getElementById('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); },
     setMode(m) {
       document.body.dataset.mode = m;
     },
     onArt(e) {
       if (e.x === undefined) return;
-      const cls = { hit: 'pop-hit', land: 'pop-land', wall: 'pop-wall', drift: 'pop-drift', speed: 'pop-small', prop: 'pop-small' }[e.kind] || 'pop-small';
+      const cls = { hit: 'pop-hit lv' + (e.level || 0), jump: 'pop-jump', car: 'pop-car', land: 'pop-land', wall: 'pop-wall', drift: 'pop-drift', speed: 'pop-small', prop: 'pop-small' }[e.kind] || 'pop-small';
       let txt = e.label;
       if (e.kind === 'hit') txt = e.label + ' +' + e.pts + (e.mult > 1 ? ' ×' + e.mult : '');
       else txt = e.label + ' +' + e.pts;
@@ -95,7 +96,7 @@
       const cb = s.score;
       if (cb.combo > 1) { e.comboBox.classList.add('on'); e.comboNum.textContent = cb.combo; e.mult.textContent = '×' + cb.mult; e.comboBar.style.width = (cb.comboTimer / CT.config.score.comboWindow * 100) + '%'; }
       else e.comboBox.classList.remove('on');
-      e.speed.textContent = Math.round(Math.abs(s.taxi.speed) * 3.6);
+      e.speed.textContent = Math.round(s.taxi.totalSpeed * 3.6);
       e.boost.style.width = (s.taxi.boost * 100) + '%';
       e.speedlines.style.opacity = U.clamp((s.taxi.totalSpeed - 24) / 16, 0, 0.85);
       if (s.score.driftNow > 20) { e.driftBox.classList.add('on'); e.driftVal.textContent = Math.round(s.score.driftNow); } else e.driftBox.classList.remove('on');
@@ -108,7 +109,7 @@
         const a = Math.atan2(dx, dz) - camAng;
         e.arrow.style.transform = 'rotate(' + (-a * 180 / Math.PI) + 'deg)';
         e.arrow.style.borderBottomColor = '#' + ('000000' + t.color.toString(16)).slice(-6);
-        e.arrowDist.textContent = Math.round(d) + 'm' + (t.kind === 'dest' ? ' 目的地' : ' お客さん');
+        e.arrowDist.textContent = (t.kind === 'dest' ? '目的地 ' : 'お客さん ') + Math.round(d) + 'm';
         e.arrowWrap.style.display = '';
       } else e.arrowWrap.style.display = 'none';
       // ポップアップ追従
