@@ -37,3 +37,12 @@
     }
   });
 })();
+
+/* 検証ブリッジ: 親ページ(claude.ai)のJSから iframe 内のゲームを操作・状態取得する。検証用ビルド専用。
+   親側: ifr.contentWindow.postMessage({ctEval:'式', id:1}, '*') → window.addEventListener('message') で {ctResult:1, value} を受け取る */
+window.addEventListener('message', async (e) => {
+  const d = e.data; if (!d || typeof d.ctEval !== 'string') return;
+  let value, error;
+  try { value = await (0, eval)('(async()=>{ return (' + d.ctEval + '); })()'); value = JSON.parse(JSON.stringify(value === undefined ? null : value)); } catch (err) { error = String(err); }
+  e.source.postMessage({ ctResult: d.id, value, error }, '*');
+});
