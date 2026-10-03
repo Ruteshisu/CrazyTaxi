@@ -28,7 +28,7 @@
       // 見る方向: 基本は車体後方。ドリフト中は進行方向寄り。きりもみ中は速度方向 (回転に釣られない)
       let target = h;
       if (taxi.spinning) target = Math.atan2(taxi.vx, taxi.vz);
-      else if (speed > 6) { const va = Math.atan2(taxi.vx, taxi.vz); target = h + U.angleDiff(va, h) * 0.4; if (taxi.speed < -1) target = h + Math.PI; }
+      else if (speed > 6 && taxi.speed >= -1) { const va = Math.atan2(taxi.vx, taxi.vz); target = h + U.angleDiff(va, h) * 0.4; } // バック中は車体後方のまま (カメラを反転させない)
       this.angle += U.angleDiff(target, this.angle) * (1 - Math.exp(-(taxi.spinning ? 2.2 : 5) * dt));
       if (this.pullT > 0) this.pullT -= dt; else this.pull = U.damp(this.pull, 0, 1.5, dt);
       const dist = C.dist + speed * 0.03 + (taxi.boosting ? 1.4 : 0) + this.pull + (taxi.air ? 1.5 : 0);
