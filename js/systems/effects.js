@@ -115,7 +115,7 @@
       const cols = [[1, 0.9, 0.2], [1, 0.5, 0.8], [0.4, 0.9, 1], [1, 1, 1]];
       for (let i = 0; i < n; i++) {
         const c = U.pick(cols), a = Math.random() * 6.28, e = U.rand(-0.3, 1.2), s = U.rand(0.3, 1) * spd;
-        this.stars.emit({ x, y, z, vx: Math.cos(a) * s * Math.cos(e), vy: Math.sin(e) * s + 2, vz: Math.sin(a) * s * Math.cos(e), life: U.rand(0.6, 1.3), s0: U.rand(2.5, 6), s1: 0.5, a0: 1, a1: 0, g: 3, drag: 1.2, r: c[0], g2: c[1], b: c[2] });
+        this.stars.emit({ x, y, z, vx: Math.cos(a) * s * Math.cos(e), vy: Math.sin(e) * s + 2, vz: Math.sin(a) * s * Math.cos(e), life: U.rand(0.6, 1.3), s0: U.rand(1.6, 4), s1: 0.4, a0: 1, a1: 0, g: 3, drag: 1.2, r: c[0], g2: c[1], b: c[2] });
       }
     }
     sparks(x, y, z, n) {
