@@ -8,6 +8,7 @@ html = (root/'index.html').read_text(encoding='utf-8')
 css = (root/'css/style.css').read_text(encoding='utf-8')
 body = re.search(r'<body[^>]*>(.*)</body>', html, re.S).group(1)
 body = re.sub(r'<link rel="stylesheet"[^>]*>', '', body)
+body = re.sub(r'\.js\?v=[0-9.]+', '.js', body)
 if '--debug' in sys.argv:
     body = body.replace('<script src="js/main.js"></script>', '<script src="js/main.js"></script>\n<script src="tools/debug.js"></script>')
 out = '<title>ブッ飛びタクシー</title>\n<style>\n' + css + '\n</style>\n' + body
