@@ -115,3 +115,6 @@ body.is-touch[data-mode="attract"] #touch, body.is-touch[data-mode="result"] #to
 body.is-touch #title .keys { display: none; }
 #rotate { display: none; position: fixed; inset: 0; z-index: 20; background: #1a1030; color: #fff; align-items: center; justify-content: center; font-size: 6vw; text-align: center; }
 @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+
+#ver { position: absolute; left: calc(var(--u)*1.2); bottom: calc(var(--u)*.8); font-size: calc(var(--u)*1.7); opacity: .6; pointer-events: none; text-shadow: 0 0 3px #000; }
+body:not([data-mode="attract"]) #ver { display: none; }
