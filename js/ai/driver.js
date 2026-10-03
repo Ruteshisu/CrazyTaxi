@@ -32,7 +32,7 @@
       if (!obj && !hunting) {
         const t = fare.target(taxi); if (t) obj = { x: t.x, z: t.z, stop: true };
       }
-      const ped = this._findPed(taxi, hunting ? 80 : (obj ? 28 : 40), hunting ? 1.1 : 0.4, hunting);
+      const ped = this._findPed(taxi, hunting ? 80 : (obj ? 22 : 40), hunting ? 1.1 : 0.35, hunting);
       let goal;
       if (ped) { goal = { x: ped.x + (ped.tx - ped.x) * 0.0, z: ped.z, ped: true }; // 位置をそのまま狙う
         const d = Math.hypot(ped.x - taxi.x, ped.z - taxi.z), lead = d / Math.max(12, taxi.totalSpeed);
@@ -74,6 +74,7 @@
       if (Math.abs(sp) < 1.5 && throttle > 0) this.stuckT += dt; else this.stuckT = Math.max(0, this.stuckT - dt * 2);
       if (this.stuckT > 0.8) { this.stuckT = 0; this.reverseT = 0.9; this.reverseSteer = Math.random() < 0.5 ? -1 : 1; this.route = []; }
 
+      this.dbg = (goal.ped ? 'PED' : goal.stop ? (fare.onboard ? 'DEST' : 'SPOT') : 'WANDER') + ' dG=' + Math.round(dGoal) + ' route=' + this.route.length + ' diff=' + diff.toFixed(2) + ' want=' + Math.round(want) + ' hunt=' + this.huntLeft + (handbrake ? ' HB' : '');
       return { throttle, steer, handbrake, boost };
     }
 

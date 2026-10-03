@@ -17,7 +17,7 @@
     const t = g.taxi;
     box.textContent = (errs.length ? 'ERR: ' + errs.slice(-3).join(' | ') + '\n' : '') +
       'fps=' + fps + ' ' + g.mode + ' t=' + g.time.toFixed(1) + ' art=' + Math.round(g.score.art) + ' fare=' + Math.round(g.score.money) + ' hits=' + g.score.hits + ' deliv=' + g.score.deliveries +
-      ' pos=' + t.x.toFixed(0) + ',' + t.z.toFixed(0) + ' v=' + t.speed.toFixed(1) + ' slip=' + t.slip.toFixed(1) + ' rigs=' + g.pool.activeCount + (hold ? ' HOLD' : '');
+      ' pos=' + t.x.toFixed(0) + ',' + t.z.toFixed(0) + ' v=' + t.speed.toFixed(1) + ' slip=' + t.slip.toFixed(1) + ' rigs=' + g.pool.activeCount + (hold ? ' HOLD' : '') + (g.mode === 'attract' ? '\nAI ' + (g.driver.dbg || '') : '');
   }, 250);
   window.addEventListener('keydown', (e) => {
     const g = CT.game; if (!g) return;

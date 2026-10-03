@@ -90,7 +90,7 @@
     endGame() {
       this.mode = 'result'; this.resultT = 0;
       const s = this.score, t = s.total;
-      const ranks = [[14000, 'S 伝説の運転手'], [9000, 'A 敏腕ドライバー'], [5000, 'B 腕利き'], [2200, 'C 見習い']];
+      const ranks = [[60000, 'S 伝説の運転手'], [35000, 'A 敏腕ドライバー'], [18000, 'B 腕利き'], [7000, 'C 見習い']];
       const rank = (ranks.find((r) => t >= r[0]) || [0, 'D ペーパー運転手'])[1];
       CT.HUD.showResult({ rank, art: Math.round(s.art), money: Math.round(s.money), total: t, hits: s.hits, maxCombo: s.maxCombo, bestHeight: s.bestHeight, deliveries: s.deliveries });
       CT.HUD.setMode('result'); CT.bus.emit('game:timeup');
