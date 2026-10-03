@@ -34,6 +34,14 @@
 - 公開: 全公開の単一リポジトリ方式に変更 (docs/PUBLISH.md)。`publish_pages.ps1` は削除
 - **未検証**: 音、タッチ実機
 
+## 第5回改修
+- 乗降: お客さんの拡大縮小アニメを削除。乗り込みは「ドアに着いたら車内の座った姿に切替」、降車は「ドア横に現れる」。演出カメラのFOV変化(ズーム)も削除
+- お客さんごとに見た目が違う (`fare._look` + `Models.human({seed})` で髪型まで再現)。乗せた人が車内に座り(`taxi.setPassenger`)、降りる人も同じ見た目。降車開始で車内から消える
+- 降車リアクション: 評価に応じて ハイタッチ(hifi)/バンザイ/グータッチ/いいね/お辞儀/手を振る。良い評価はボーナス点 (`fare._deliver`, 運転手側は `taxi.react`)
+- カメラをさらに接近 (dist 4.1 / height 1.8 / fov 60)
+- デモAIを作り直し (`ai/driver.js`): 道路の交差点グラフ上の距離場で経路を決めて純追跡、前方の障害物までの距離で減速、壁の前で止まれず衝突→後退して切り返し。歩道奥の人は狙わない。衝突は 1分10回 → 10分で0〜1回
+- 検証: `tools/headless_sim.py` (three.jsスタブ + headless Chromium) でAIの衝突回数・配達数を計測できる。描画はしない
+
 ## 作業ログ (概略)
 1. 計画(docs/PLAN.md) → 質疑: 作業場所/見た目/デモ構成/ルールを確認
 2. core(util/config/input/audio) → models → world → taxi → ragdoll/ped → effects/score/fare/camera/hud → AI → game
@@ -50,5 +58,7 @@
 - ポイントスプライトの大きさは「メートル単位の直径」で指定(`effects.js` の `resize`)。星/煙が大きすぎると画面を覆うので注意。
 
 ## 検証方法
+- ロジック(物理/AI/得点): `python3 tools/headless_sim.py 240 3` (秒数, 回数)。three.js 不要。衝突数/配達数/最初の衝突直前の状況を出力
+- 見た目:
 `python3 tools/build_artifact.py /path/out.html --debug` で検証用断片を生成 → Artifactで公開(`files` に js 一式 + tools/debug.js)。
 デバッグキー: 1=残り3秒 / 2,3=客・目的地近くへワープ / 4=アクセル固定 / 5=通行人を目の前へ / 画面下にステータス表示。

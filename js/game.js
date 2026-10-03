@@ -152,7 +152,7 @@
         if (taxi.totalSpeed > 1) ctl.throttle = -1;
         if (this.resultT > cfg().game.resultAutoReturn) { this.startDemo(); return; }
       }
-      taxi.passengerOn = this.fare.onboard || (this.fare.cap && this.fare.cap.kind === 'drop');
+      taxi.passengerOn = this.fare.riding;
       taxi.update(dt, ctl, this.world);
       this.peds.update(dt, taxi, this);
       this.world.update(dt);

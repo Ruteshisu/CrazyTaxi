@@ -31,7 +31,7 @@
       else if (speed > 6) { const va = Math.atan2(taxi.vx, taxi.vz); target = h + U.angleDiff(va, h) * 0.4; if (taxi.speed < -1) target = h + Math.PI; }
       this.angle += U.angleDiff(target, this.angle) * (1 - Math.exp(-(taxi.spinning ? 2.2 : 5) * dt));
       if (this.pullT > 0) this.pullT -= dt; else this.pull = U.damp(this.pull, 0, 1.5, dt);
-      const dist = C.dist + speed * 0.045 + (taxi.boosting ? 1.4 : 0) + this.pull + (taxi.air ? 1.5 : 0);
+      const dist = C.dist + speed * 0.03 + (taxi.boosting ? 1.4 : 0) + this.pull + (taxi.air ? 1.5 : 0);
       const height = C.height + speed * 0.02 + this.pull * 0.35;
       const dx = -Math.sin(this.angle), dz = -Math.cos(this.angle);
       let cx = taxi.x + dx * dist, cz = taxi.z + dz * dist, cy = height + taxi.y * 0.75;
@@ -63,12 +63,11 @@
       this.cam.position.copy(this.pos);
       if (this.blend > 0.002) {
         const ct = this.cine ? this.cine.t / this.cine.dur : 1, phi = U.lerp(1.0, -0.55, Math.min(1, ct));
-        const lx = Math.cos(h), lz = -Math.sin(h), fx = Math.sin(h), fz = Math.cos(h), R = 7.2;
+        const lx = Math.cos(h), lz = -Math.sin(h), fx = Math.sin(h), fz = Math.cos(h), R = 6.0;
         const px = taxi.x + (lx * Math.cos(phi) + fx * Math.sin(phi)) * R, pz = taxi.z + (lz * Math.cos(phi) + fz * Math.sin(phi)) * R, py = 1.8 + ct * 0.7;
         this.cam.position.set(U.lerp(this.pos.x, px, this.blend), U.lerp(this.pos.y, py, this.blend), U.lerp(this.pos.z, pz, this.blend));
         lookT = this._lt = this._lt || new THREE.Vector3();
         lookT.set(U.lerp(this.look.x, taxi.x + lx * 1.6, this.blend), U.lerp(this.look.y, 1.3, this.blend), U.lerp(this.look.z, taxi.z + lz * 1.6, this.blend));
-        this.cam.fov = U.lerp(this.cam.fov, 52, this.blend); this.cam.updateProjectionMatrix();
       }
       if (this.shakeT > 0) {
         this.shakeT -= dt; const a = this.shakeA * Math.min(1, this.shakeT * 4);

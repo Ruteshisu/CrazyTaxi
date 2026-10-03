@@ -561,7 +561,13 @@
     /* ================= 通行人(歩き用) ================= */
     /** 胴/頭/腕2/脚(太もも+膝から先)2 の8メッシュ。ジオメトリは色・スタイルの組み合わせごとに共有。
         脚グループ userData.knee = 膝グループ (animHuman が曲げる) */
+    /** o.seed を渡すと見た目(髪型/小物など)が再現できる (客と車内の客を同じ見た目にするため) */
     human(o) {
+      if (!o || o.seed === undefined) return M._human(o);
+      const orig = Math.random; Math.random = CT.util.mulberry32(o.seed);
+      try { return M._human(o); } finally { Math.random = orig; }
+    },
+    _human(o) {
       const THREE = T();
       o = Object.assign({ shirt: 0xe84a5f, pants: 0x2b4a7a, skin: 0xf3c9a0, hair: 0x3a2a1c, scale: 1, hat: false }, o || {});
       const R = Math.random, jacket = R() < 0.3;
@@ -602,6 +608,25 @@
           seated = true; h.legL.rotation.x = h.legR.rotation.x = -1.4;
           h.armL.rotation.set(-2.9 + Math.sin(t * 15) * 0.25, 0, 0.45); h.armR.rotation.set(-2.9 - Math.sin(t * 15) * 0.25, 0, -0.45);
           h.root.position.y = Math.abs(Math.sin(t * 9)) * 0.07; h.head.rotation.x = -0.25; break;
+        case 'seatHifi': // 運転手: 窓側(+x)へ手を伸ばしてハイタッチ
+          seated = true; h.legL.rotation.x = h.legR.rotation.x = -1.4;
+          h.armL.rotation.set(-0.9, 0, 0.1); h.armR.rotation.set(-0.2, 0, 2.15 + Math.sin(t * 14) * 0.08); h.head.rotation.y = 0.9; break;
+        case 'hifi': // 降りる客: 車のほうを向いて手を高く上げる (ハイタッチ)
+          h.legL.rotation.x = h.legR.rotation.x = 0; h.armL.rotation.set(0, 0, -0.15);
+          h.armR.rotation.set(-2.7 + Math.sin(t * 14) * 0.08, 0, -0.1); h.root.position.y = Math.abs(Math.sin(t * 8)) * 0.1; break;
+        case 'banzai': // 両手を上げてジャンプ
+          h.legL.rotation.x = h.legR.rotation.x = 0;
+          h.armL.rotation.set(-3.0, 0, 0.35); h.armR.rotation.set(-3.0, 0, -0.35);
+          h.root.position.y = Math.abs(Math.sin(t * 7)) * 0.35; break;
+        case 'fist': // グータッチ
+          h.legL.rotation.x = h.legR.rotation.x = 0; h.armL.rotation.set(0, 0, -0.15);
+          h.armR.rotation.set(-1.45, 0, -0.1); h.root.position.y = Math.abs(Math.sin(t * 8)) * 0.05; break;
+        case 'thumbs': // サムズアップ
+          h.legL.rotation.x = h.legR.rotation.x = 0; h.armL.rotation.set(0, 0, -0.15);
+          h.armR.rotation.set(-1.7, 0, -0.35); h.head.rotation.x = -0.12; break;
+        case 'bow': // お辞儀
+          h.legL.rotation.x = h.legR.rotation.x = 0; h.armL.rotation.set(0.1, 0, -0.1); h.armR.rotation.set(0.1, 0, 0.1);
+          h.root.rotation.x = 0.35 + Math.max(0, Math.sin(t * 5)) * 0.65; break;
         case 'run':
           h.legL.rotation.x = s * 1.0; h.legR.rotation.x = -s * 1.0;
           h.armL.rotation.x = -s * 1.1; h.armR.rotation.x = s * 1.1;

@@ -33,6 +33,7 @@
         this.say('deliver');
       });
       bus.on('bgm:track', (e) => this.bgmName(e.name));
+      bus.on('fare:react', (e) => this.pop3d(e.label, e.x, 3.2, e.z, 'pop-small'));
       bus.on('ped:hit', (e) => { if (e.cry) this.pop3d(e.cry.text, e.x, 3.4 + (e.level || 0) * 0.4, e.z, 'pop-cry'); this.say('hit', 0.55); if ((e.level || 0) >= 3) this.flash(); });
       bus.on('crash', (e) => { if (e.power > 0.35) this.say('crash', 0.6); });
       bus.on('ped:apex', (e) => this.pop3d('キラーン☆', e.x, e.y, e.z, 'pop-star'));

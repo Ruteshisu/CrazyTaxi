@@ -30,7 +30,7 @@
       crashMinSpeed: 19,     // 衝突後の最低速度
     },
     camera: {
-      dist: 5.2, height: 2.15, lookAhead: 3.2, lookHeight: 1.25, fov: 62, // 車体後方・低め・近め
+      dist: 4.1, height: 1.8, lookAhead: 3.0, lookHeight: 1.2, fov: 60, // 車体後方・低め・近め
     },
     traffic: { cars: 40, parked: 24, speed: [9, 15], laneOffset: 3.7, parkedOffset: 7.4 },
     ramps: { count: 26, length: 13, width: 8.5, height: 3.4, boost: 1.0, vyCap: 14 },

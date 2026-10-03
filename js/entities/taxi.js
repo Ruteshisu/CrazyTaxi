@@ -57,13 +57,25 @@
       this.sync(dt);
     }
 
+    /** 車内の客を、乗せたお客さんと同じ見た目にする (look = {seed,shirt,pants,skin,hair}) */
+    setPassenger(look) {
+      const R = this.model.riders, M = CT.Models; if (!R) return;
+      const old = R.passenger, body = this.model.body;
+      body.remove(old.group);
+      const pax = M.human(Object.assign({ scale: 1.0 }, look));
+      pax.group.position.copy(old.group.position); body.add(pax.group); R.passenger = pax;
+    }
+    /** 降車時の反応 (運転手がハイタッチ等)。kind: 'hifi'|'banzai'|'fist'|null */
+    react(kind, dur) { this.reactKind = kind; this.reactT = dur || 1.2; }
     _riders(dt) {
       const R = this.model.riders; if (!R) return;
+      if (this.reactT > 0) this.reactT -= dt;
       this.rideT += dt; this.cheerT = Math.max(0, this.cheerT - dt);
       if (this.drifting && this.driftTime > 0.5) this.cheerT = Math.max(this.cheerT, 0.25);
       R.passenger.group.visible = this.passengerOn;
       const cheer = this.cheerT > 0, t = this.rideT;
-      CT.Models.animHuman(R.driver, cheer ? 'cheer' : 'seat', t * 3, t);
+      const rk = this.reactT > 0 ? this.reactKind : null;
+      CT.Models.animHuman(R.driver, rk === 'hifi' || rk === 'fist' ? 'seatHifi' : (cheer || rk === 'banzai') ? 'cheer' : 'seat', t * 3, t);
       if (this.passengerOn) CT.Models.animHuman(R.passenger, cheer ? 'cheer' : 'seatIdle', t * 3 + 1, t + 0.6);
     }
 

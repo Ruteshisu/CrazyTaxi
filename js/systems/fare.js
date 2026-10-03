@@ -14,6 +14,17 @@
       this.arrow = this._roofArrow(); scene.add(this.arrow);
     }
     get onboard() { return !!this.current; }
+    /** 車内に客が見えている間 (乗り込み完了〜降車開始) */
+    get riding() { return !!this.current || !!(this.cap && this.cap.kind === 'pick' && this.cap.ct >= 1.0); }
+    /** お客さんごとの見た目 (乗車中の車内/降車でも同じ見た目になる) */
+    _look() {
+      const U2 = U;
+      return { seed: Math.floor(Math.random() * 1e9), scale: 1.0,
+        shirt: U2.pick([0xff5050, 0x3fa7ff, 0xb07cff, 0xffffff, 0xffd23a, 0x5fd068, 0xff8ad0, 0xff9a2e, 0x2dd4bf]),
+        pants: U2.pick([0x2b4a7a, 0x3a3a46, 0x7a5a3a, 0x556b2f, 0x6a3a6a]),
+        hair: U2.pick([0x2b1d12, 0x5a3a1c, 0x111111, 0xd9b44a, 0xb04a2a, 0xdddddd]),
+        skin: U2.pick([0xf3c9a0, 0xe0a878, 0xc68642, 0xffdbb5]) };
+    }
     /** タクシー屋根の上に浮く、目的地を指す矢印 (平たい矢印形) */
     _roofArrow() {
       const THREE = window.THREE, sh = new THREE.Shape();
@@ -56,10 +67,10 @@
       }
       if (!s) s = this.world.randomSpot(taxi.x, taxi.z, 60, 400);
       const obj = this._marker(tier.color, false);
-      const cust = CT.Models.human({ shirt: U.pick([0xff5050, 0x3fa7ff, 0xb07cff, 0xffffff, 0xffd23a]), pants: 0x2b4a7a, scale: 1.05 * CT.config.ped.scale });
+      const look = this._look(), cust = CT.Models.human(Object.assign({}, look, { scale: 1.05 * CT.config.ped.scale }));
       cust.group.position.set(0, 0.3, 0); obj.add(cust.group);
       obj.position.set(s.x, 0, s.z); this.root.add(obj);
-      this.spots.push({ tier, x: s.x, z: s.z, obj, cust, ph: Math.random() * 6 });
+      this.spots.push({ tier, x: s.x, z: s.z, obj, cust, look, ph: Math.random() * 6 });
     }
     /** 現在の案内先 {x,z,color,kind} (客探し中は一番近い客) */
     target(taxi) {
@@ -116,7 +127,7 @@
       const lx = Math.cos(taxi.h), lz = -Math.sin(taxi.h); // 左ドア側
       if (c.phase === 'brake') {
         if (taxi.totalSpeed < 1.5 || c.t > 1.6) {
-          taxi.vx = taxi.vz = 0; taxi.speed = 0; c.phase = 'cine'; c.ct = 0; c.dur = 1.8;
+          taxi.vx = taxi.vz = 0; taxi.speed = 0; c.phase = 'cine'; c.ct = 0; c.dur = c.kind === 'drop' ? 2.3 : 1.7;
           CT.bus.emit('cine', { kind: c.kind, dur: c.dur, x: taxi.x, z: taxi.z });
           if (c.kind === 'drop') this._deliver(taxi, game, true);
           else { c.s0 = { x: c.spot.x, z: c.spot.z }; c.spot.obj.userData.pil.visible = false; }
@@ -131,16 +142,23 @@
         s.cust.group.position.set(wx - s.obj.position.x, 0.3, wz - s.obj.position.z);
         s.cust.group.rotation.y = Math.atan2(door.x - c.s0.x, door.z - c.s0.z);
         CT.Models.animHuman(s.cust, p < 1 ? 'walk' : 'wave', c.ct * 9, c.ct);
-        if (c.ct > 1.15) s.cust.group.scale.setScalar(Math.max(0.01, 1 - (c.ct - 1.15) * 4));
-        if (c.ct >= c.dur) { s.cust.group.scale.setScalar(1); this._board(s, taxi, game); this._endCap(taxi); }
+        if (c.ct >= 1.0) s.cust.group.visible = false; // ドアに着いたら乗り込み (拡大縮小はせず、車内に座った姿に切り替わる)
+        if (!c.boarded && c.ct >= 1.0) { c.boarded = true; this._board(s, taxi, game); }
+        if (c.ct >= c.dur) this._endCap(taxi);
       } else {
         const pg = this.passenger;
         if (pg) {
-          const p = Math.min(1, c.ct / 1.5), e = 1 - (1 - p) * (1 - p);
-          const ox = door.x + lx * 0.2, oz = door.z + lz * 0.2, tx = taxi.x + lx * 3.2 + Math.sin(taxi.h) * 6.5, tz = taxi.z + lz * 3.2 + Math.cos(taxi.h) * 6.5;
-          pg.group.position.set(U.lerp(ox, tx, e), 0.3, U.lerp(oz, tz, e)); pg.group.rotation.y = Math.atan2(tx - ox, tz - oz);
-          pg.group.scale.setScalar(Math.min(1, c.ct * 6));
-          CT.Models.animHuman(pg, p < 1 ? 'walk' : 'wave', c.ct * 9, c.ct);
+          // 前半: ドア横で車のほうを向いて反応(ハイタッチ等) / 後半: 歩き去る
+          const rx = c.react || 'wave', talk = rx === 'wave' || rx === 'bow' ? 0.5 : 1.0, ox = door.x + lx * 0.4, oz = door.z + lz * 0.4;
+          const tx = taxi.x + lx * 3.4 + Math.sin(taxi.h) * 6.5, tz = taxi.z + lz * 3.4 + Math.cos(taxi.h) * 6.5;
+          if (c.ct < talk) {
+            pg.group.position.set(ox, 0.3, oz); pg.group.rotation.y = Math.atan2(-lx, -lz);
+            CT.Models.animHuman(pg, rx, c.ct, c.ct * 1.2);
+          } else {
+            const p = Math.min(1, (c.ct - talk) / 1.3);
+            pg.group.position.set(U.lerp(ox, tx, p), 0.3, U.lerp(oz, tz, p)); pg.group.rotation.y = Math.atan2(tx - ox, tz - oz);
+            CT.Models.animHuman(pg, p < 1 ? 'walk' : 'wave', c.ct * 9, c.ct);
+          }
         }
         if (c.ct >= c.dur) this._endCap(taxi);
       }
@@ -156,7 +174,8 @@
       this.root.remove(s.obj); this.spots.splice(this.spots.indexOf(s), 1); // 他の客はそのまま残す
       this.dest = { x: d.x, z: d.z, obj };
       const dist = Math.hypot(d.x - s.x, d.z - s.z);
-      this.current = { tier, dist, startT: game.playTime, artAtStart: game.score.art, from: { x: s.x, z: s.z } };
+      this.current = { tier, dist, startT: game.playTime, artAtStart: game.score.art, from: { x: s.x, z: s.z }, look: s.look };
+      taxi.setPassenger(s.look);
       CT.bus.emit('pickup', { x: s.x, z: s.z, tier, dist });
     }
 
@@ -171,10 +190,17 @@
       const info = { x: this.dest.x, z: this.dest.z, money, tip, timeBonus, rating, tier, dist: c.dist, ride };
       this.root.remove(this.dest.obj); this.dest = null; this.current = null;
       CT.bus.emit('deliver', info);
-      if (cine) { // 降りるお客さん (ドア側から出て歩き去る)
+      if (cine) { // 降りるお客さん (乗せたときと同じ見た目。ドア横に現れる)
         if (this.passenger) this.root.remove(this.passenger.group);
-        this.passenger = CT.Models.human({ shirt: U.pick([0xff5050, 0x3fa7ff, 0xb07cff, 0xffd23a]), pants: 0x2b4a7a, scale: 1.05 * CT.config.ped.scale });
-        this.passenger.group.scale.setScalar(0.01); this.root.add(this.passenger.group);
+        this.passenger = CT.Models.human(Object.assign({}, c.look, { scale: 1.05 * CT.config.ped.scale }));
+        this.root.add(this.passenger.group);
+        // 良いプレイならハイタッチ等 (評価でバリエーション)
+        const R = Math.random(), good = rating === 'スゴイ!!' ? (R < 0.5 ? 'hifi' : 'banzai') : rating === 'グレート!' ? (R < 0.6 ? 'hifi' : 'fist') : rating === 'グッド' ? (R < 0.5 ? 'thumbs' : 'bow') : 'wave';
+        this.cap.react = good;
+        const label = { hifi: 'ハイタッチ!', banzai: 'バンザーイ!', fist: 'グータッチ!', thumbs: 'いいね!', bow: 'ありがとう!', wave: '' }[good];
+        taxi.react(good === 'hifi' || good === 'fist' ? good : good === 'banzai' ? 'banzai' : null, 1.3);
+        if (label && game.score && (good === 'hifi' || good === 'banzai' || good === 'fist')) game.score.add(good === 'banzai' ? 700 : 400, { kind: 'bonus', label, x: this.dest ? this.dest.x : taxi.x, y: 3, z: this.dest ? this.dest.z : taxi.z, big: true });
+        else if (label) CT.bus.emit('fare:react', { label, x: taxi.x, z: taxi.z });
       }
       while (this.spots.length < this.cfg.spots) this._spawn(taxi, this.spots.length, true);
     }

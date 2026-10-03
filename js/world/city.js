@@ -85,15 +85,15 @@
       return { x: p.x, z: p.z };
     }
     nearestInt(x, z) { return { a: U.clamp(Math.round(x / this.P + this.N / 2), 0, this.N), b: U.clamp(Math.round(z / this.P + this.N / 2), 0, this.N) }; }
-    segmentClear(ax, az, bx, bz, pad) {
-      pad = pad || 0;
+    segmentClear(ax, az, bx, bz, pad, hmin) {
+      pad = pad || 0; hmin = hmin === undefined ? 1.5 : hmin;
       const minx = Math.min(ax, bx) - 10, maxx = Math.max(ax, bx) + 10, minz = Math.min(az, bz) - 10, maxz = Math.max(az, bz) + 10;
       for (const b of this.boxes) {
-        if (b.h < 1.5 || b.maxx < minx || b.minx > maxx || b.maxz < minz || b.minz > maxz) continue;
+        if (b.h < hmin || b.maxx < minx || b.minx > maxx || b.maxz < minz || b.minz > maxz) continue;
         if (segBox(ax, az, bx, bz, b.minx - pad, b.maxx + pad, b.minz - pad, b.maxz + pad)) return false;
       }
       for (const c of this.circles) {
-        if (c.h < 1.5) continue;
+        if (c.h < hmin) continue;
         if (distSegPt(ax, az, bx, bz, c.x, c.z) < c.r + pad) return false;
       }
       return true;
