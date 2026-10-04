@@ -15,6 +15,14 @@
     constructor(scene, world, pool) {
       this.scene = scene; this.world = world; this.pool = pool; this.list = [];
       for (let n = 0; n < CT.config.ped.count; n++) this.list.push(this._make());
+      // 公園の群衆 (ボーナスステージ): 中央の大きな公園は特に多い
+      this.parks = world.blocks.filter((b) => b.type === 'park');
+      const c = (world.N - 1) / 2, cfg = CT.config.ped;
+      for (const b of this.parks) {
+        const n = b.i === c && b.j === c ? cfg.parkCrowd : cfg.parkCrowdSmall; b.crowd = n;
+        for (let k = 0; k < n; k++) { const p = this._make(); p.park = b; this.list.push(p); }
+      }
+      this._anchor = null;
       this.reset();
     }
 
@@ -29,38 +37,58 @@
     }
 
     reset() {
-      this.pool.clear();
-      const gs = CT.config.ped.groupSize;
+      this.pool.clear(); this._anchor = null;
+      const gs = CT.config.ped.groupSize, street = this.list.filter((p) => !p.park);
       let i = 0;
-      while (i < this.list.length) {
-        const n = Math.min(this.list.length - i, U.randInt(gs[0], gs[1]));
-        this._placeGroup(this.list.slice(i, i + n)); i += n;
+      while (i < street.length) {
+        const n = Math.min(street.length - i, U.randInt(gs[0], gs[1]));
+        this._placeGroup(street.slice(i, i + n)); i += n;
+      }
+      for (const b of this.parks) { // 公園: 何重もの周回路に群れで配置
+        const mem = this.list.filter((p) => p.park === b); let k = 0;
+        while (k < mem.length) { const n = Math.min(mem.length - k, U.randInt(gs[0], gs[1])); this._placeGroup(mem.slice(k, k + n), { bi: b.i, bj: b.j, inset: U.pick([3, 6.5, 10, 13.5, 17]) }); k += n; }
       }
     }
     /** 同じ辺の上に並べた人だかり。全員同じ向きに歩く */
-    _placeGroup(members) {
-      const N = this.world.N, inset = Math.random() < 0.5 ? 2.2 : -1.3, dir = Math.random() < 0.5 ? 1 : -1;
-      const bi = U.randInt(0, N - 1), bj = U.randInt(0, N - 1), side = U.randInt(0, 3), f0 = U.rand(0.06, 0.5);
+    _placeGroup(members, opt) {
+      const N = this.world.N, inset = opt ? opt.inset : (Math.random() < 0.5 ? 2.2 : -1.3), dir = Math.random() < 0.5 ? 1 : -1;
+      const bi = opt ? opt.bi : U.randInt(0, N - 1), bj = opt ? opt.bj : U.randInt(0, N - 1), side = U.randInt(0, 3), f0 = U.rand(0.04, 0.4);
       members.forEach((p, k) => {
         p.bi = bi; p.bj = bj; p.dir = dir; p.inset = inset + U.rand(-0.5, 0.5);
-        const f = Math.min(0.96, f0 + k * 0.058 + U.rand(-0.01, 0.01));
+        const f = Math.min(0.96, f0 + k * 0.055 + U.rand(-0.01, 0.01));
         const q = this.world.perimeterPoint(bi, bj, side + f, p.inset);
         p.x = q.x; p.z = q.z; p.c = dir > 0 ? (side + 1) % 4 : side; this._setTarget(p);
         p.state = 'walk'; p.speed = U.rand(...CT.config.ped.walkSpeed) * (k ? 1 : 1) ; p.t = 0; p.h.group.visible = true; p.stars.visible = false; this._face(p);
       });
     }
-    /** 倒された後の補充: 車の前方〜周囲の遠めのレールに新しい通行人を置く */
+    /** 倒された後の補充: 公園の人は公園へ戻る。街の人は「グループ」で補充(同じ場所に続けて並べる) */
     _respawnNear(p, taxi) {
-      let best = null, bs = 1e9;
-      for (let n = 0; n < 14; n++) {
-        this._place(p);
-        const dx = p.x - taxi.x, dz = p.z - taxi.z, d = Math.hypot(dx, dz);
-        if (d < 45) continue;
-        const front = (dx * taxi.fx + dz * taxi.fz) / (d || 1);
-        const sc = Math.abs(d - 85) - front * 40;
-        if (sc < bs) { bs = sc; best = { x: p.x, z: p.z, bi: p.bi, bj: p.bj, c: p.c, dir: p.dir, inset: p.inset }; }
+      if (p.park) {
+        const b = p.park, N = this.world.N;
+        p.bi = b.i; p.bj = b.j; p.inset = U.pick([3, 6.5, 10, 13.5, 17]) + U.rand(-0.5, 0.5); p.dir = Math.random() < 0.5 ? 1 : -1;
+        const side = U.randInt(0, 3), q = this.world.perimeterPoint(b.i, b.j, side + U.rand(0.05, 0.9), p.inset);
+        p.x = q.x; p.z = q.z; p.c = (side + (p.dir > 0 ? 1 : 0)) % 4; void N; this._setTarget(p);
+        p.state = 'walk'; p.t = 0; p.h.group.visible = true; p.stars.visible = false; p.freezer = Math.random() < CT.config.ped.freezeChance; this._face(p);
+        return;
       }
-      if (best) { Object.assign(p, best); this._setTarget(p); }
+      const now = performance.now() / 1000, an = this._anchor;
+      if (!an || now - an.t > 4 || an.left <= 0) { // 新しいグループの置き場所を決める
+        let best = null, bs = 1e9;
+        for (let n = 0; n < 14; n++) {
+          const inset = Math.random() < 0.5 ? 2.2 : -1.3, bi = U.randInt(0, this.world.N - 1), bj = U.randInt(0, this.world.N - 1), side = U.randInt(0, 3), f = U.rand(0.05, 0.4);
+          const q = this.world.perimeterPoint(bi, bj, side + f, inset), dx = q.x - taxi.x, dz = q.z - taxi.z, d = Math.hypot(dx, dz);
+          if (d < 45) continue;
+          const sc = Math.abs(d - 85) - ((dx * taxi.fx + dz * taxi.fz) / (d || 1)) * 40;
+          if (sc < bs) { bs = sc; best = { bi, bj, side, f, inset }; }
+        }
+        if (best) this._anchor = { ...best, dir: Math.random() < 0.5 ? 1 : -1, left: U.randInt(3, 8), t: now, k: 0 };
+      }
+      const A = this._anchor;
+      if (A) {
+        const f = Math.min(0.96, A.f + A.k * 0.055); A.k++; A.left--;
+        const q = this.world.perimeterPoint(A.bi, A.bj, A.side + f, A.inset + U.rand(-0.4, 0.4));
+        p.bi = A.bi; p.bj = A.bj; p.inset = A.inset; p.dir = A.dir; p.x = q.x; p.z = q.z; p.c = A.dir > 0 ? (A.side + 1) % 4 : A.side; this._setTarget(p);
+      } else this._place(p);
       p.state = 'walk'; p.t = 0; p.h.group.visible = true; p.stars.visible = false; p.freezer = Math.random() < CT.config.ped.freezeChance; this._face(p);
     }
     /** ランダムなレール上に配置 */
@@ -97,7 +125,7 @@
     _nextCorner(p) {
       const N = this.world.N, W = this.world;
       // 角に到着: 横断するか周回継続
-      if (Math.random() < 0.28) {
+      if (!p.park && Math.random() < 0.28) {
         const sx = p.c === 1 || p.c === 2 ? 1 : -1, sz = p.c === 2 || p.c === 3 ? 1 : -1;
         const axisX = Math.random() < 0.5;
         const ni = p.bi + (axisX ? sx : 0), nj = p.bj + (axisX ? 0 : sz);
@@ -115,12 +143,21 @@
 
     update(dt, taxi, game) {
       const cfg = CT.config.ped, t0 = performance.now() / 1000;
-      const tfx = taxi.fx, tfz = taxi.fz, tsp = taxi.totalSpeed;
+      const tfx = taxi.fx, tfz = taxi.fz, tsp = taxi.totalSpeed, cull2 = cfg.cullDist * cfg.cullDist;
       for (const p of this.list) {
         if (p.state === 'rag') continue;
         if (p.state === 'down') { p.t += dt; if (p.t > cfg.respawnTime) this._respawnNear(p, taxi); continue; }
-        p.t += dt; p.phase += dt * (p.state === 'panic' ? 14 : 3.6 + p.speed * 1.7);
         const dx = p.x - taxi.x, dz = p.z - taxi.z, d2 = dx * dx + dz * dz;
+        if (d2 > cull2) { // 遠い人: 描画/アニメを止める(位置だけ進める)
+          p.h.group.visible = false; p.t += dt;
+          if (p.state === 'walk' || p.state === 'cross') {
+            const ddx = p.tx - p.x, ddz = p.tz - p.z, dd = Math.hypot(ddx, ddz);
+            if (dd < 0.5) this._nextCorner(p); else { p.x += (ddx / dd) * p.speed * dt; p.z += (ddz / dd) * p.speed * dt; p.yaw = Math.atan2(ddx, ddz); }
+          } else if (p.state === 'panic' || p.state === 'freeze') { p.state = 'walk'; p.t = 0; }
+          continue;
+        }
+        p.h.group.visible = true;
+        p.t += dt; p.phase += dt * (p.state === 'panic' ? 14 : 3.6 + p.speed * 1.7);
         // 逃げる/固まる判定
         if ((p.state === 'walk' || p.state === 'cross') && d2 < cfg.panicDist * cfg.panicDist && tsp > 6) {
           const d = Math.sqrt(d2) || 1, toward = (tfx * dx + tfz * dz) / d;

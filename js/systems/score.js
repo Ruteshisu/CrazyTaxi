@@ -32,7 +32,7 @@
     }
     onHit(e) {
       if (!this.enabled) return;
-      this.combo++; this.comboTimer = this.cfg.comboWindow; this.hits++;
+      this.combo++; this.comboTimer = this.cfg.comboWindow * (this.bonus ? 2 : 1); this.hits++;
       this.maxCombo = Math.max(this.maxCombo, this.combo);
       const mult = this.mult;
       e.mult = mult;

@@ -45,3 +45,4 @@
 2. `tools/debug.js` に **検証ブリッジ** を追加: 親ページのJSから iframe 内のゲームを直接操作/状態取得できる (`ctEval('CT.game.mode')`)。これで画面操作に頼らず、キー入力・状態確認・fps計測がスクリプトでできる。
 3. 開始時に必ず fps を計測し、0付近なら「描画が止まっている」と判断して検証を打ち切り、原因(上記)を報告する。
 4. 公開後は公開サイト(github.io)を直接開くのが最も安定(window.CT に直接アクセスできる)。
+- **確定した原因 (第6回)**: 描画が止まっている最中に `tabs_context` を見ると「The Browser pane is currently hidden」、ページは `visibilityState: hidden` だった。ユーザーが右パネルで別のもの(Artifact/ファイル)を開くとブラウザ枠が隠れ、非表示ページのrAFが止まる。→ 検証前に `tabs_context` で displayed を確認し、hidden ならユーザーに Ctrl+Shift+B を依頼する。

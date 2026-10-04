@@ -225,7 +225,15 @@
       }
       r.launch(o); return r;
     }
-    update(dt, world) { for (const r of this.rigs) if (r.active && !r.sleeping) r.update(dt, world); }
+    update(dt, world) {
+      const vd = CT.config.ragdoll.vanishDist, f = this.focus;
+      for (const r of this.rigs) {
+        if (!r.active) continue;
+        if (r.sleeping) { // 倒れて残っている人: 車から遠く離れたら消す
+          if (Math.hypot(r.x - f.x, r.z - f.z) > vd) r.finish();
+        } else r.update(dt, world);
+      }
+    }
     clear() { for (const r of this.rigs) { r.active = false; r.sleeping = false; r.group.visible = false; } }
     get activeCount() { return this.rigs.filter((r) => r.active).length; }
   }

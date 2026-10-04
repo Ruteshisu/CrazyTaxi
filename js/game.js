@@ -161,6 +161,11 @@
       this.pool.focus.x = taxi.x; this.pool.focus.z = taxi.z;
       this.pool.update(dt, this.world);
       if (this.mode !== 'result') { this.fare.update(dt, taxi, this); this.score.enabled = true; } else this.score.enabled = false;
+      // 公園の群衆エリア = ボーナスステージ (コンボが切れにくい)
+      { const W = this.world, i = Math.floor(taxi.x / W.P + W.N / 2), j = Math.floor(taxi.z / W.P + W.N / 2), b = (i >= 0 && j >= 0 && i < W.N && j < W.N) ? W.blocks[i * W.N + j] : null;
+        const inB = !!(b && b.type === 'park' && b.crowd);
+        if (inB && !this.inBonus && this.mode === 'play') { CT.HUD.banner('ボーナスステージ! 人がいっぱい!', 'gold', 1600); CT.bus.emit('bonus:enter', { x: taxi.x, z: taxi.z }); }
+        this.inBonus = inB; this.score.bonus = inB; }
       this.score.update(dt, taxi);
       this.fx.update(dt, taxi, this.pool, this.mode !== 'result');
       this.cam.update(dt, taxi);

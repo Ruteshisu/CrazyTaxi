@@ -44,6 +44,13 @@
 - デモAIを作り直し (`ai/driver.js`): 道路の交差点グラフ上の距離場で経路を決めて純追跡、前方の障害物までの距離で減速、壁の前で止まれず衝突→後退して切り返し。歩道奥の人は狙わない。衝突は 1分10回 → 10分で0〜1回
 - 検証: `tools/headless_sim.py` (three.jsスタブ + headless Chromium) でAIの衝突回数・配達数を計測できる。描画はしない
 
+## 第6回改修
+- スマホの左右ボタンを大きく(幅 22vw / 高さ 30vmin)
+- 衝突: 壁への法線速度が13m/s未満ならきりもみ無し(滑る)。強い衝突は壁に沿って「進んでいた側」へ、壁から少し離れる向きに飛ぶ(跳ね返らない)。着地後しばらくは再回転しない (`taxi._crashSpin`, `cfg.taxi.crashSpinMin`)
+- 倒れた人は車から120m以上離れると消える (`ragdoll.vanishDist`)
+- 通行人: 230→320人 + 公園の群衆(中央公園96人/他24人)。グループは4〜9人。倒した後の補充もグループ単位。遠い人(190m超)は描画/アニメ停止
+- 公園=ボーナスステージ: 入ると「ボーナスステージ!」表示、コンボ猶予が2倍 (`game.inBonus`)
+
 ## 作業ログ (概略)
 1. 計画(docs/PLAN.md) → 質疑: 作業場所/見た目/デモ構成/ルールを確認
 2. core(util/config/input/audio) → models → world → taxi → ragdoll/ped → effects/score/fare/camera/hud → AI → game

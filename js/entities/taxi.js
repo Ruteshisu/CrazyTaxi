@@ -219,12 +219,12 @@
       const vn = this.vx * h.nx + this.vz * h.nz;
       if (vn >= 0) return;
       const C = this.cfg, speed = this.totalSpeed;
-      if (-vn > 5.5 && this.spinT <= 0 && this.crashCooldown <= 0) {
+      if (-vn > C.crashSpinMin && this.spinT <= 0 && this.crashCooldown <= 0) {
         this._crashSpin(h, vn, speed);
         return;
       }
       // 軽い接触は壁沿いにすべる(減速しない)
-      this.vx -= (1 + 0.15) * vn * h.nx; this.vz -= (1 + 0.15) * vn * h.nz;
+      this.vx -= (1 + 0.05) * vn * h.nx; this.vz -= (1 + 0.05) * vn * h.nz;
       const lx = Math.cos(this.h), lz = -Math.sin(this.h);
       this.yaw += (h.nx * lx + h.nz * lz) * off * 0.02 * -vn;
       if (-vn > 3.5 && this.crashCooldown <= 0) {
@@ -237,11 +237,13 @@
     _crashSpin(h, vn, speed) {
       const C = this.cfg;
       const tx = -h.nz, tz = h.nx;                       // 壁の接線
-      const vt = this.vx * tx + this.vz * tz;            // 接線方向速度(符号つき)
-      // 出射: 接線は保持、法線は跳ね返り
-      let ox = tx * vt + h.nx * (-vn) * 0.7, oz = tz * vt + h.nz * (-vn) * 0.7;
+      // 出射方向: 壁に沿って「進んでいた側」へ、少しだけ壁から離れる向きに飛ばす (跳ね返って往復しない)
+      // 正面衝突で接線方向の速度が小さいときは、車首が向いている側/ハンドルを切っている側の接線を選ぶ
+      let vt = this.vx * tx + this.vz * tz;
+      if (Math.abs(vt) < 2.5) { const dh = this.fx * tx + this.fz * tz; vt = Math.abs(dh) > 0.05 ? dh : ((this.lastCtl && this.lastCtl.steer) || (Math.random() < 0.5 ? 1 : -1)); }
+      const sg = vt >= 0 ? 1 : -1;
+      let ox = tx * sg * 0.87 + h.nx * 0.5, oz = tz * sg * 0.87 + h.nz * 0.5;
       let sp = Math.hypot(ox, oz);
-      if (sp < 1) { ox = h.nx; oz = h.nz; sp = 1; }
       const target = Math.max(C.crashMinSpeed, speed * C.crashKeepSpeed);
       ox *= target / sp; oz *= target / sp;
       this.vx = ox; this.vz = oz;
@@ -251,7 +253,7 @@
       const targetH = Math.atan2(ox, oz), sign = Math.random() < 0.5 ? 1 : -1;
       let d = U.angleDiff(targetH, this.h);
       this.spinTotal = d + sign * Math.PI * 2; this.spinRoll = sign;
-      this.crashCooldown = 0.6;
+      this.crashCooldown = this.spinDur + 0.6; // 着地してしばらくは再び回転しない (往復ハマり防止)
       this.fromRamp = false;
       CT.bus.emit('crash', { power: Math.min(1, speed / 28), x: this.x, z: this.z, speed, spin: true });
     }

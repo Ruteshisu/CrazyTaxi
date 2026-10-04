@@ -28,6 +28,7 @@
       crashSpinTime: 0.85,   // 建物にぶつかった時のきりもみ回転時間
       crashKeepSpeed: 0.8,   // 衝突後に維持する速度の割合
       crashMinSpeed: 19,     // 衝突後の最低速度
+      crashSpinMin: 13,      // 壁への法線方向速度(m/s)がこれ未満の衝突は回転せず滑る (ゆっくりぶつけても飛ばない)
     },
     camera: {
       dist: 4.1, height: 1.8, lookAhead: 3.0, lookHeight: 1.2, fov: 60, // 車体後方・低め・近め
@@ -35,9 +36,12 @@
     traffic: { cars: 40, parked: 24, speed: [9, 15], laneOffset: 3.7, parkedOffset: 7.4 },
     ramps: { count: 26, length: 13, width: 8.5, height: 3.4, boost: 1.0, vyCap: 14 },
     ped: {
-      count: 230,
+      count: 320,         // 街中の通行人 (別に公園へ群衆が入る)
       scale: 1.0,         // 人物の大きさ(1.0=約1.8m)
-      groupSize: [3, 7],  // 人だかりの人数
+      groupSize: [4, 9],  // 人だかりの人数 (ほぼ全員グループで歩く)
+      parkCrowd: 96,      // 中央の大きな公園の人数 (ボーナスステージ)
+      parkCrowdSmall: 24, // その他の公園の人数
+      cullDist: 190,      // これより遠い通行人は描画/アニメを止める
       respawnTime: 7,     // 倒した後に別の場所へ補充される秒数
       walkSpeed: [1.5, 2.6],
       fleeSpeed: 6.5,
@@ -52,6 +56,7 @@
       damping: 0.997,
       iterations: 5,
       maxLife: 9,
+      vanishDist: 120,    // 倒れた人が車からこの距離より離れたら消える
     },
     score: {
       hit: 100,           // ヒット基本点

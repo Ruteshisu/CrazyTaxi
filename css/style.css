@@ -107,10 +107,11 @@ body.is-touch[data-mode="attract"] #touch, body.is-touch[data-mode="result"] #to
 #touch .tg { position: absolute; bottom: max(3vmin, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 2.4vmin; }
 #touch .tg.left { left: max(3vmin, env(safe-area-inset-left)); }
 #touch .tg.right { right: max(3vmin, env(safe-area-inset-right)); }
-#touch .tg.left button { width: 19vmin; height: 19vmin; font-size: 8vmin; }
+#touch .tg.left { gap: 3vmin; }
+#touch .tg.left button { width: 22vw; height: 30vmin; max-width: 62vmin; font-size: 12vmin; border-radius: 6vmin; }
 #touch .tg.right { flex-wrap: wrap; justify-content: flex-end; width: 50vmin; }
-#touch .tg.right .big { order: 5; width: 26vmin; height: 26vmin; font-size: 7vmin; background: rgba(255,80,80,.55); }
-#touch .tg.right .sm { width: 12.5vmin; height: 12.5vmin; font-size: 2.4vmin; }
+#touch .tg.right .big { order: 5; width: 30vmin; height: 30vmin; font-size: 8vmin; background: rgba(255,80,80,.55); }
+#touch .tg.right .sm { width: 14vmin; height: 14vmin; font-size: 2.6vmin; }
 #title .tc { display: none; } body.is-touch #title .tc { display: inline; } body.is-touch #title .pc { display: none; }
 body.is-touch #title .keys { display: none; }
 #rotate { display: none; position: fixed; inset: 0; z-index: 20; background: #1a1030; color: #fff; align-items: center; justify-content: center; font-size: 6vw; text-align: center; }
